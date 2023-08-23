@@ -8,11 +8,12 @@ class QColorWheel : public QWidget
 public:
     explicit QColorWheel(QWidget* parent = nullptr);
 
-    void setSelectedColor(QColor color);
+    void setSelectedColor(const QColor& color);
     QColor getSelectedColor() const;
     QColor getColor(int x, int y) const;
 
 signals:
+    void selectedColorChanged(const QColor& color);
 
 protected:
     void paintEvent(QPaintEvent* e) override;

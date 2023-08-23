@@ -1,4 +1,4 @@
-#include "QColorWheel.h"
+#include "QColorEditor.h"
 
 #include <QDebug>
 #include <QMouseEvent>
@@ -11,7 +11,7 @@ QColorWheel::QColorWheel(QWidget *parent)
 {
 }
 
-void QColorWheel::setSelectedColor(QColor color)
+void QColorWheel::setSelectedColor(const QColor& color)
 {
     m_selectedColor = color;
     update();
@@ -77,6 +77,7 @@ void QColorWheel::processMouseEvent(QMouseEvent *e)
 {
     if (e->buttons() & Qt::LeftButton) {
         m_selectedColor = getColor(e->x(), e->y());
-        repaint();
+        emit selectedColorChanged(m_selectedColor);
+        update();
     }
 }

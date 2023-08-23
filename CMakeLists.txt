@@ -18,8 +18,8 @@ set(PROJECT_SOURCES
         main.cpp
         MainWindow.cpp
         MainWindow.h
-        QColorWheel.h
-        QColorWheel.cpp
+        QColorEditor/QColorEditor.h
+        QColorEditor/QColorEditor.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
