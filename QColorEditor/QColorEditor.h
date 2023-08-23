@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <QWidget>
 
 //--------------------------------------------------- color combination --------------------------------------------------
@@ -82,12 +84,12 @@ protected:
     void paintEvent(QPaintEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
+    void resizeEvent(QResizeEvent* e) override;
 
 private:
     void processMouseEvent(QMouseEvent* e);
     void drawColorCircle(QPainter* painter, const QColor& color, int radius);
 
-    int m_radius;
-    QColor m_selectedColor;
-    colorcombo::ICombination* m_colorCombination;
+    class Private;
+    std::unique_ptr<Private> p;
 };

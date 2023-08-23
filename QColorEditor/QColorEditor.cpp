@@ -3,73 +3,96 @@
 #include <QDebug>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QImage>
 
 //--------------------------------------------------------- color wheel ------------------------------------------------
+class QColorWheel::Private
+{
+public:
+    int radius = 0;
+    QColor selectedColor = QColor(Qt::white);
+    QImage colorBuffer;
+    colorcombo::ICombination* colorCombination = nullptr;
+
+    void renderWheel(const QRect& rect)
+    {
+        auto center = rect.center();
+        auto size = rect.size();
+
+        radius = std::min(rect.width(), rect.height()) / 2;
+
+        // init buffer
+        colorBuffer = QImage(size, QImage::Format_ARGB32);
+        colorBuffer.fill(Qt::transparent);
+        
+        // create gradient
+        QConicalGradient hsvGradient(center, 0);
+        for (int deg = 0; deg < 360; deg += 60) {
+            hsvGradient.setColorAt(deg / 360.0, QColor::fromHsvF(deg / 360.0, 1.0, selectedColor.valueF()));
+        }
+        hsvGradient.setColorAt(1.0, QColor::fromHsvF(0.0, 1.0, selectedColor.valueF()));
+
+        QRadialGradient valueGradient(center, radius);
+        valueGradient.setColorAt(0.0, QColor::fromHsvF(0.0, 0.0, selectedColor.valueF()));
+        valueGradient.setColorAt(1.0, Qt::transparent);
+
+        QPainter painter(&colorBuffer);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        // draw color wheel
+        painter.setPen(Qt::transparent);
+        painter.setBrush(hsvGradient);
+        painter.drawEllipse(center, radius, radius);
+        painter.setBrush(valueGradient);
+        painter.drawEllipse(center, radius, radius);
+    }
+};
+
 QColorWheel::QColorWheel(QWidget* parent)
     : QWidget(parent)
-    , m_radius(0)
-    , m_selectedColor(Qt::white)
-    , m_colorCombination(nullptr)
+    , p(new Private)
 {
 }
 
 void QColorWheel::setColorCombination(colorcombo::ICombination* combination)
 {
-    m_colorCombination = combination;
+    p->colorCombination = combination;
 }
 
 void QColorWheel::setSelectedColor(const QColor& color)
 {
-    m_selectedColor = color;
+    p->selectedColor = color;
     update();
 }
 
 QColor QColorWheel::getSelectedColor() const
 {
-    return m_selectedColor;
+    return p->selectedColor;
 }
 
 QColor QColorWheel::getColor(int x, int y) const
 {
-    if (m_radius <= 0) return QColor();
+    if (p->radius <= 0) return QColor();
 
     auto line = QLineF(this->rect().center(), QPointF(x, y));
     auto h = line.angle() / 360.0;
-    auto s = std::min(1.0, line.length() / m_radius);
-    auto v = m_selectedColor.valueF();
+    auto s = std::min(1.0, line.length() / p->radius);
+    auto v = p->selectedColor.valueF();
     return QColor::fromHsvF(h, s, v);
 }
 
 void QColorWheel::paintEvent(QPaintEvent* e)
 {
-    auto center = this->rect().center();
-    m_radius = std::min(this->contentsRect().width(), this->contentsRect().height()) / 2;
-
-    QConicalGradient hsvGradient(center, 0);
-    for (int deg = 0; deg < 360; ++deg) {
-        hsvGradient.setColorAt(deg / 360.0, QColor::fromHsvF(deg / 360.0, 1.0, m_selectedColor.valueF()));
-    }
-
-    QRadialGradient valueGradient(center, m_radius);
-    valueGradient.setColorAt(0.0, QColor::fromHsvF(0.0, 0.0, m_selectedColor.valueF()));
-    valueGradient.setColorAt(1.0, Qt::transparent);
-
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    // draw color wheel
-    painter.setPen(Qt::transparent);
-    painter.setBrush(hsvGradient);
-    painter.drawEllipse(center, m_radius, m_radius);
-    painter.setBrush(valueGradient);
-    painter.drawEllipse(center, m_radius, m_radius);
+    // draw wheel
+    painter.drawImage(0, 0, p->colorBuffer);
     // draw selected color circle
     painter.setPen(Qt::black);
     painter.setBrush(Qt::white);
-    drawColorCircle(&painter, m_selectedColor, 4);
+    drawColorCircle(&painter, p->selectedColor, 4);
     // draw color combination circle
-    if (m_colorCombination) {
-        auto colors = m_colorCombination->genColors(m_selectedColor);
-
+    if (p->colorCombination) {
+        auto colors = p->colorCombination->genColors(p->selectedColor);
         for (const auto& color : colors) {
             drawColorCircle(&painter, color, 3);
         }
@@ -87,18 +110,23 @@ void QColorWheel::mouseMoveEvent(QMouseEvent* e)
     processMouseEvent(e);
 }
 
+void QColorWheel::resizeEvent(QResizeEvent* e)
+{
+    p->renderWheel(this->contentsRect());
+}
+
 void QColorWheel::processMouseEvent(QMouseEvent* e)
 {
     if (e->buttons() & Qt::LeftButton) {
-        m_selectedColor = getColor(e->x(), e->y());
-        emit selectedColorChanged(m_selectedColor);
+        p->selectedColor = getColor(e->x(), e->y());
+        emit selectedColorChanged(p->selectedColor);
         update();
     }
 }
 
 void QColorWheel::drawColorCircle(QPainter* painter, const QColor& color, int radius)
 {
-    auto line = QLineF::fromPolar(color.hsvSaturationF() * m_radius, color.hsvHueF() * 360.0);
+    auto line = QLineF::fromPolar(color.hsvSaturationF() * p->radius, color.hsvHueF() * 360.0);
     line.translate(this->rect().center());
     painter->drawEllipse(line.p2(), radius, radius);
 }
