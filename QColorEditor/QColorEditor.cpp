@@ -4,6 +4,51 @@
 #include <QImage>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QSettings>
+
+//------------------------------------------------------- static color data --------------------------------------------
+struct StaticColorEditorData
+{
+    static constexpr int standardCount = 4 * 12;
+    bool customSet = false;
+    QRgb standardRgb[standardCount];
+    QVector<QRgb> customRgb;
+
+    StaticColorEditorData()
+    {
+        // standard
+        int i = 0;
+        for (int g = 0; g < 4; ++g)
+            for (int r = 0; r < 4; ++r)
+                for (int b = 0; b < 3; ++b) standardRgb[i++] = qRgb(r * 255 / 3, g * 255 / 3, b * 255 / 2);
+        // custom
+        readSettings();
+    }
+
+    void readSettings()
+    {
+        const QSettings settings(QSettings::UserScope, QStringLiteral("__ColorEditor"));
+        int count = settings.value(QLatin1String("customCount")).toInt();
+        customRgb.resize(count);
+        for (int i = 0; i < count; ++i) {
+            const QVariant v = settings.value(QLatin1String("customColors/") + QString::number(i));
+            if (v.isValid()) {
+                customRgb[i] = v.toUInt();
+            }
+        }
+    }
+    void writeSettings()
+    {
+        const_cast<StaticColorEditorData*>(this)->customSet = false;
+        QSettings settings(QSettings::UserScope, QStringLiteral("__ColorEditor"));
+        int count = customRgb.size();
+        settings.setValue(QLatin1String("customCount"), count);
+        for (int i = 0; i < count; ++i) {
+            settings.setValue(QLatin1String("customColors/") + QString::number(i), customRgb[i]);
+        }
+    }
+};
+Q_GLOBAL_STATIC(StaticColorEditorData, staticColorEditorData)
 
 //--------------------------------------------------------- color wheel ------------------------------------------------
 class ColorWheel::Private
