@@ -4,6 +4,7 @@
 
 #include <QWidget>
 #include <QSlider>
+#include <QScrollArea>
 
 //--------------------------------------------------- color combination --------------------------------------------------
 namespace colorcombo
@@ -111,7 +112,7 @@ private:
 };
 
 //--------------------------------------------- color palette ------------------------------------------------------
-class ColorPalette : public QWidget
+class ColorPalette : public QScrollArea
 {
     Q_OBJECT
 public:

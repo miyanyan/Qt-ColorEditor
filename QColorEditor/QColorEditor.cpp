@@ -1,18 +1,21 @@
 #include "QColorEditor.h"
 
 #include <QDebug>
+#include <QGridLayout>
 #include <QImage>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPushButton>
+#include <QScrollBar>
 #include <QSettings>
-#include <QGridLayout>
 
 //------------------------------------------------------- static color data --------------------------------------------
 struct StaticColorEditorData
 {
-    static constexpr int standardCount = 4 * 12;
+    static constexpr int rowCount = 4;
+    static constexpr int colCount = 12;
     bool customSet = false;
-    QRgb standardRgb[standardCount];
+    QRgb standardRgb[rowCount * colCount];
     QVector<QRgb> customRgb;
 
     StaticColorEditorData()
@@ -349,7 +352,6 @@ QColor ColorSlider::stopColor() const
     return p->stopColor;
 }
 
-
 //--------------------------------------------- color palette ------------------------------------------------------
 class ColorPalette::Private
 {
@@ -358,36 +360,67 @@ public:
     QGridLayout* layout = nullptr;
     QVector<QColor> colors;
 
-    void updateLayout(int index)
+    Private(int column, QScrollArea* parent)
     {
+        columnCount = column;
 
+        auto scrollWidget = new QWidget(parent);
+        layout = new QGridLayout(scrollWidget);
+        layout->setAlignment(Qt::AlignTop);
+        layout->setSpacing(0);
+
+        parent->setWidget(scrollWidget);
+    }
+
+    std::pair<int, int> getLayoutIndex(int index) { return {index / columnCount, index % columnCount}; }
+
+    void updateLayout(int begin, int end)
+    {
+        for (int i = begin; i < end; ++i) {
+            int row = i / columnCount;
+            int col = i % columnCount;
+            auto btn = qobject_cast<QPushButton*>(layout->itemAtPosition(row, col)->widget());
+            btn->setStyleSheet(QString("QPushButton{background-color:%1}").arg(colors[i].name()));
+        }
     }
 };
 
 ColorPalette::ColorPalette(int column, QWidget* parent)
-    : QWidget(parent)
-    , p(new Private)
+    : QScrollArea(parent)
+    , p(new Private(column, this))
 {
-    p->columnCount = column;
-    p->layout = new QGridLayout(this);
+    setWidgetResizable(true);
 }
 
 void ColorPalette::addColor(const QColor& color)
 {
+    int index = p->colors.size();
     p->colors.push_back(color);
-    p->updateLayout(p->colors.size() - 1);
+
+    auto btn = new QPushButton(this);
+    btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    connect(btn, &QPushButton::clicked, this, [this, index]() { emit colorSelected(p->colors[index]); });
+
+    auto layoutIndex = p->getLayoutIndex(index);
+    p->layout->addWidget(btn, layoutIndex.first, layoutIndex.second);
+
+    p->updateLayout(index, index + 1);
 }
 
 void ColorPalette::setColor(const QColor& color, int row, int column)
 {
     int index = row * p->columnCount + column;
-    p->colors.insert(index, color);
-    p->updateLayout(index);
+    p->colors[index] = color;
+    p->updateLayout(index, index + 1);
 }
 
 void ColorPalette::removeColor(const QColor& color, int row, int column)
 {
+    auto item = p->layout->itemAtPosition(row, column);
+    p->layout->removeItem(item);
+    delete item;
+
     int index = row * p->columnCount + column;
     p->colors.remove(index);
-    p->updateLayout(index);
+    p->updateLayout(index, p->colors.size());
 }
