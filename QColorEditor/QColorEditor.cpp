@@ -96,6 +96,8 @@ void ColorWheel::paintEvent(QPaintEvent* e)
         for (const auto& color : colors) {
             drawSelector(&painter, color, 3);
         }
+        // add selected color, so the user can switch between this
+        colors.push_back(p->selectedColor);
         emit combinationColorChanged(colors);
     }
 }
