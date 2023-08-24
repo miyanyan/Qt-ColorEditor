@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QSettings>
+#include <QGridLayout>
 
 //------------------------------------------------------- static color data --------------------------------------------
 struct StaticColorEditorData
@@ -346,4 +347,47 @@ QColor ColorSlider::startColor() const
 QColor ColorSlider::stopColor() const
 {
     return p->stopColor;
+}
+
+
+//--------------------------------------------- color palette ------------------------------------------------------
+class ColorPalette::Private
+{
+public:
+    int columnCount = 0;
+    QGridLayout* layout = nullptr;
+    QVector<QColor> colors;
+
+    void updateLayout(int index)
+    {
+
+    }
+};
+
+ColorPalette::ColorPalette(int column, QWidget* parent)
+    : QWidget(parent)
+    , p(new Private)
+{
+    p->columnCount = column;
+    p->layout = new QGridLayout(this);
+}
+
+void ColorPalette::addColor(const QColor& color)
+{
+    p->colors.push_back(color);
+    p->updateLayout(p->colors.size() - 1);
+}
+
+void ColorPalette::setColor(const QColor& color, int row, int column)
+{
+    int index = row * p->columnCount + column;
+    p->colors.insert(index, color);
+    p->updateLayout(index);
+}
+
+void ColorPalette::removeColor(const QColor& color, int row, int column)
+{
+    int index = row * p->columnCount + column;
+    p->colors.remove(index);
+    p->updateLayout(index);
 }

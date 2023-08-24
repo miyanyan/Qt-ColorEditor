@@ -98,11 +98,30 @@ private:
 //---------------------------------------------- color slider -------------------------------------------------------
 class ColorSlider : public QSlider
 {
+    Q_OBJECT
 public:
     explicit ColorSlider(QWidget* parent = nullptr);
     void setGradient(const QColor& startColor, const QColor& stopColor);
     QColor startColor() const;
     QColor stopColor() const;
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
+//--------------------------------------------- color palette ------------------------------------------------------
+class ColorPalette : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ColorPalette(int column, QWidget* parent = nullptr);
+    void addColor(const QColor& color);
+    void setColor(const QColor& color, int row, int column);
+    void removeColor(const QColor& color, int row, int column);
+
+signals:
+    void colorSelected(const QColor& color);
 
 private:
     class Private;
