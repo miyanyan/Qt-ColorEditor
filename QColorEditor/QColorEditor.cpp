@@ -1,12 +1,12 @@
 #include "QColorEditor.h"
 
 #include <QDebug>
+#include <QImage>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QImage>
 
 //--------------------------------------------------------- color wheel ------------------------------------------------
-class QColorWheel::Private
+class ColorWheel::Private
 {
 public:
     int radius = 0;
@@ -24,7 +24,7 @@ public:
         // init buffer
         colorBuffer = QImage(size, QImage::Format_ARGB32);
         colorBuffer.fill(Qt::transparent);
-        
+
         // create gradient
         QConicalGradient hsvGradient(center, 0);
         for (int deg = 0; deg < 360; deg += 60) {
@@ -47,29 +47,29 @@ public:
     }
 };
 
-QColorWheel::QColorWheel(QWidget* parent)
+ColorWheel::ColorWheel(QWidget* parent)
     : QWidget(parent)
     , p(new Private)
 {
 }
 
-void QColorWheel::setColorCombination(colorcombo::ICombination* combination)
+void ColorWheel::setColorCombination(colorcombo::ICombination* combination)
 {
     p->colorCombination = combination;
 }
 
-void QColorWheel::setSelectedColor(const QColor& color)
+void ColorWheel::setSelectedColor(const QColor& color)
 {
     p->selectedColor = color;
     update();
 }
 
-QColor QColorWheel::getSelectedColor() const
+QColor ColorWheel::getSelectedColor() const
 {
     return p->selectedColor;
 }
 
-QColor QColorWheel::getColor(int x, int y) const
+QColor ColorWheel::getColor(int x, int y) const
 {
     if (p->radius <= 0) return QColor();
 
@@ -80,7 +80,7 @@ QColor QColorWheel::getColor(int x, int y) const
     return QColor::fromHsvF(h, s, v);
 }
 
-void QColorWheel::paintEvent(QPaintEvent* e)
+void ColorWheel::paintEvent(QPaintEvent* e)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -89,33 +89,33 @@ void QColorWheel::paintEvent(QPaintEvent* e)
     // draw selected color circle
     painter.setPen(Qt::black);
     painter.setBrush(Qt::white);
-    drawColorCircle(&painter, p->selectedColor, 4);
+    drawSelector(&painter, p->selectedColor, 4);
     // draw color combination circle
     if (p->colorCombination) {
         auto colors = p->colorCombination->genColors(p->selectedColor);
         for (const auto& color : colors) {
-            drawColorCircle(&painter, color, 3);
+            drawSelector(&painter, color, 3);
         }
         emit combinationColorChanged(colors);
     }
 }
 
-void QColorWheel::mousePressEvent(QMouseEvent* e)
+void ColorWheel::mousePressEvent(QMouseEvent* e)
 {
     processMouseEvent(e);
 }
 
-void QColorWheel::mouseMoveEvent(QMouseEvent* e)
+void ColorWheel::mouseMoveEvent(QMouseEvent* e)
 {
     processMouseEvent(e);
 }
 
-void QColorWheel::resizeEvent(QResizeEvent* e)
+void ColorWheel::resizeEvent(QResizeEvent* e)
 {
     p->renderWheel(this->contentsRect());
 }
 
-void QColorWheel::processMouseEvent(QMouseEvent* e)
+void ColorWheel::processMouseEvent(QMouseEvent* e)
 {
     if (e->buttons() & Qt::LeftButton) {
         p->selectedColor = getColor(e->x(), e->y());
@@ -124,7 +124,7 @@ void QColorWheel::processMouseEvent(QMouseEvent* e)
     }
 }
 
-void QColorWheel::drawColorCircle(QPainter* painter, const QColor& color, int radius)
+void ColorWheel::drawSelector(QPainter* painter, const QColor& color, int radius)
 {
     auto line = QLineF::fromPolar(color.hsvSaturationF() * p->radius, color.hsvHueF() * 360.0);
     line.translate(this->rect().center());
@@ -240,4 +240,5 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
             QColor::fromHsv((color.hsvHue() + 180) % 360, color.hsvSaturation(), color.value()),
             QColor::fromHsv((color.hsvHue() + 90 + add + 360) % 360, color.hsvSaturation(), color.value())};
 }
-} // namespace colorcombination
+} // namespace colorcombo
+

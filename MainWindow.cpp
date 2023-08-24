@@ -5,7 +5,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    auto widget = new QColorWheel(this);
+    auto widget = new ColorWheel(this);
     this->setCentralWidget(widget);
 
     //auto cc = new colorcombination::Complementary(this);

@@ -65,11 +65,11 @@ public:
 } // namespace colorcombination
 
 //-------------------------------------------------- color wheel --------------------------------------------------
-class QColorWheel : public QWidget
+class ColorWheel : public QWidget
 {
     Q_OBJECT
 public:
-    explicit QColorWheel(QWidget* parent = nullptr);
+    explicit ColorWheel(QWidget* parent = nullptr);
 
     void setColorCombination(colorcombo::ICombination* combination);
     void setSelectedColor(const QColor& color);
@@ -88,7 +88,7 @@ protected:
 
 private:
     void processMouseEvent(QMouseEvent* e);
-    void drawColorCircle(QPainter* painter, const QColor& color, int radius);
+    void drawSelector(QPainter* painter, const QColor& color, int radius);
 
     class Private;
     std::unique_ptr<Private> p;
