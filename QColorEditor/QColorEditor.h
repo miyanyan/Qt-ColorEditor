@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QWidget>
+#include <QSlider>
 
 //--------------------------------------------------- color combination --------------------------------------------------
 namespace colorcombo
@@ -90,6 +91,20 @@ private:
     void processMouseEvent(QMouseEvent* e);
     void drawSelector(QPainter* painter, const QColor& color, int radius);
 
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
+//---------------------------------------------- color slider -------------------------------------------------------
+class ColorSlider : public QSlider
+{
+public:
+    explicit ColorSlider(QWidget* parent = nullptr);
+    void setGradient(const QColor& startColor, const QColor& stopColor);
+    QColor startColor() const;
+    QColor stopColor() const;
+
+private:
     class Private;
     std::unique_ptr<Private> p;
 };

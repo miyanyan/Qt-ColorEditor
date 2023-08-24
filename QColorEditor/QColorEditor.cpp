@@ -242,3 +242,61 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
 }
 } // namespace colorcombo
 
+//--------------------------------------------------- color slider -------------------------------------------
+class ColorSlider::Private
+{
+public:
+    QColor startColor;
+    QColor stopColor;
+};
+
+ColorSlider::ColorSlider(QWidget* parent)
+    : QSlider(Qt::Horizontal, parent)
+    , p(new Private)
+{
+}
+
+void ColorSlider::setGradient(const QColor& startColor, const QColor& stopColor)
+{
+    p->startColor = startColor;
+    p->stopColor = stopColor;
+
+    QString ori;
+    float x1, y1, x2, y2;
+    if (orientation() == Qt::Horizontal) {
+        ori = "horizontal";
+        x1 = 0;
+        y1 = 0.5f;
+        x2 = 1;
+        y2 = 0.5f;
+    }
+    else {
+        ori = "vertical";
+        x1 = 0.5f;
+        y1 = 0;
+        x2 = 0.5f;
+        y2 = 1;
+    }
+
+    auto style = QString("QSlider::groove:%1{background:qlineargradient(x1:%2,y1:%3,x2:%4,y2:%5,stop:0 %6,stop:1 %7);}"
+                         "QSlider::handle:%1{background:#5C5C5C;border:1px solid;height:4px;width:4px}")
+                     .arg(ori)
+                     .arg(x1)
+                     .arg(y1)
+                     .arg(x2)
+                     .arg(y2)
+                     .arg(startColor.name())
+                     .arg(stopColor.name());
+
+    setStyleSheet(style);
+}
+
+QColor ColorSlider::startColor() const
+{
+    return p->startColor;
+}
+
+QColor ColorSlider::stopColor() const
+{
+    return p->stopColor;
+}
