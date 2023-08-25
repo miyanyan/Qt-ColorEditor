@@ -1,4 +1,4 @@
-#include "QColorEditor.h"
+#include "ColorEditor.h"
 
 #include <QDebug>
 #include <QGridLayout>
