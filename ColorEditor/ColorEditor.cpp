@@ -1,9 +1,12 @@
 #include "ColorEditor.h"
 
+#include <QApplication>
 #include <QDebug>
+#include <QDrag>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QImage>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
@@ -362,6 +365,94 @@ QColor ColorSlider::stopColor() const
     return p->stopColor;
 }
 
+//--------------------------------------------- color button -------------------------------------------------------
+class ColorButton::Private
+{
+public:
+    QPoint pressPos;
+    QColor color;
+    int bolderWidth = 0;
+
+    void updateStyle(QPushButton* btn)
+    {
+        auto style = QString("QPushButton{min-width:30px;min-height:30px;background-color:%1;border:%2px solid;}"
+                             "QPushButton:pressed{border: 1px solid #ffd700;}")
+                         .arg(color.name())
+                         .arg(bolderWidth);
+        btn->setStyleSheet(style);
+    }
+};
+
+ColorButton::ColorButton(QWidget* parent)
+    : QPushButton(parent)
+    , p(new Private)
+{
+    setAcceptDrops(true);
+    connect(this, &QPushButton::clicked, this, [this]() { emit colorSelected(p->color); });
+}
+
+void ColorButton::setColor(const QColor& color)
+{
+    p->color = color;
+    p->updateStyle(this);
+}
+
+void ColorButton::setBolderWidth(int width)
+{
+    p->bolderWidth = width;
+    p->updateStyle(this);
+}
+
+void ColorButton::mousePressEvent(QMouseEvent* e)
+{
+    p->pressPos = e->pos();
+    QPushButton::mousePressEvent(e);
+}
+
+void ColorButton::mouseMoveEvent(QMouseEvent* e)
+{
+    if (e->buttons() & Qt::LeftButton) {
+        if ((p->pressPos - e->pos()).manhattanLength() > QApplication::startDragDistance()) {
+            QMimeData* mime = new QMimeData;
+            mime->setColorData(p->color);
+            QPixmap pix(width(), height());
+            pix.fill(p->color);
+            QDrag* drg = new QDrag(this);
+            drg->setMimeData(mime);
+            drg->setPixmap(pix);
+            drg->exec(Qt::CopyAction);
+        }
+    }
+}
+
+void ColorButton::dragEnterEvent(QDragEnterEvent* e)
+{
+    qDebug() << "111111111";
+    if (qvariant_cast<QColor>(e->mimeData()->colorData()).isValid())
+        e->accept();
+    else
+        e->ignore();
+}
+
+void ColorButton::dragLeaveEvent(QDragLeaveEvent*)
+{
+    if (hasFocus())
+        parentWidget()->setFocus();
+}
+
+void ColorButton::dropEvent(QDropEvent* e)
+{
+    auto color = qvariant_cast<QColor>(e->mimeData()->colorData());
+        qDebug() << color;
+    if (color.isValid()) {
+        setColor(color);
+        e->accept();
+    }
+    else {
+        e->ignore();
+    }
+}
+
 //--------------------------------------------- color palette ------------------------------------------------------
 class ColorPalette::Private
 {
@@ -389,11 +480,8 @@ public:
         for (int i = begin; i < end; ++i) {
             int row = i / columnCount;
             int col = i % columnCount;
-            auto btn = qobject_cast<QPushButton*>(layout->itemAtPosition(row, col)->widget());
-            auto style = QString("QPushButton{min-width:30px;min-height:30px;background-color:%1; border: 1px solid;}"
-                                 "QPushButton:pressed{border: 1px solid #ffd700;}")
-                             .arg(colors[i].name());
-            btn->setStyleSheet(style);
+            auto btn = qobject_cast<ColorButton*>(layout->itemAtPosition(row, col)->widget());
+            btn->setColor(colors[i]);
         }
     }
 };
@@ -410,9 +498,10 @@ void ColorPalette::addColor(const QColor& color)
     int index = p->colors.size();
     p->colors.push_back(color);
 
-    auto btn = new QPushButton(this);
+    auto btn = new ColorButton(this);
     btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    connect(btn, &QPushButton::clicked, this, [this, index]() { emit colorSelected(p->colors[index]); });
+    btn->setBolderWidth(1);
+    connect(btn, &ColorButton::colorSelected, this, &ColorPalette::colorSelected);
 
     auto layoutIndex = p->getLayoutIndex(index);
     p->layout->addWidget(btn, layoutIndex.first, layoutIndex.second);
@@ -445,15 +534,18 @@ public:
     QColor currentColor;
     QColor previousColor;
 
-    QPushButton* pbtnCurrent;
-    QPushButton* pbtnPrevious;
+    ColorButton* pbtnCurrent;
+    ColorButton* pbtnPrevious;
 
     Private(const QColor& color, QWidget* parent)
         : currentColor(color)
         , previousColor(color)
-        , pbtnCurrent(new QPushButton(parent))
-        , pbtnPrevious(new QPushButton(parent))
+        , pbtnCurrent(new ColorButton(parent))
+        , pbtnPrevious(new ColorButton(parent))
     {
+        pbtnCurrent->setBolderWidth(0);
+        pbtnPrevious->setBolderWidth(0);
+
         auto layout = new QHBoxLayout(parent);
         layout->setSpacing(0);
         layout->addWidget(pbtnPrevious);
@@ -467,9 +559,8 @@ public:
         previousColor = currentColor;
         currentColor = color;
 
-        auto style = QString("QPushButton{min-width:30px;min-height:30px;background-color:%1;border:0px;}QPushButton:pressed{border: 1px solid #ffd700;}");
-        pbtnCurrent->setStyleSheet(style.arg(currentColor.name()));
-        pbtnPrevious->setStyleSheet(style.arg(previousColor.name()));
+        pbtnCurrent->setColor(currentColor);
+        pbtnPrevious->setColor(previousColor);
     }
 };
 

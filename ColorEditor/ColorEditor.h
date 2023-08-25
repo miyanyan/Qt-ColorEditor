@@ -2,9 +2,10 @@
 
 #include <memory>
 
-#include <QWidget>
-#include <QSlider>
+#include <QPushButton>
 #include <QScrollArea>
+#include <QSlider>
+#include <QWidget>
 
 //--------------------------------------------------- color combination --------------------------------------------------
 namespace colorcombo
@@ -64,7 +65,7 @@ public:
     virtual QString name() override;
     virtual QVector<QColor> genColors(const QColor& color) override;
 };
-} // namespace colorcombination
+} // namespace colorcombo
 
 //-------------------------------------------------- color wheel --------------------------------------------------
 class ColorWheel : public QWidget
@@ -108,6 +109,30 @@ public:
 
 signals:
     void currentColorChanged(const QColor& color);
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
+//--------------------------------------------- color button -------------------------------------------------------
+class ColorButton : public QPushButton
+{
+    Q_OBJECT
+public:
+    explicit ColorButton(QWidget* parent);
+    void setColor(const QColor& color);
+    void setBolderWidth(int width);
+
+signals:
+    void colorSelected(const QColor& color);
+
+protected:
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void dragEnterEvent(QDragEnterEvent* e) override;
+    void dragLeaveEvent(QDragLeaveEvent*) override;
+    void dropEvent(QDropEvent* e) override;
 
 private:
     class Private;
