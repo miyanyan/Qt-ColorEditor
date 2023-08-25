@@ -305,6 +305,15 @@ ColorSlider::ColorSlider(QWidget* parent)
     : QSlider(Qt::Horizontal, parent)
     , p(new Private)
 {
+    connect(this, &QSlider::valueChanged, this, [this](int value) {
+        int minv = this->minimum();
+        int maxv = this->maximum();
+        float factor = 1.0f * (value - minv) / (maxv - minv);
+        int r = p->startColor.red() + factor * (p->stopColor.red() - p->startColor.red());
+        int g = p->startColor.green() + factor * (p->stopColor.green() - p->startColor.green());
+        int b = p->startColor.blue() + factor * (p->stopColor.blue() - p->startColor.blue());
+        emit currentColorChanged(QColor(r, g, b));
+    });
 }
 
 void ColorSlider::setGradient(const QColor& startColor, const QColor& stopColor)

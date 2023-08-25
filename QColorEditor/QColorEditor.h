@@ -106,6 +106,9 @@ public:
     QColor startColor() const;
     QColor stopColor() const;
 
+signals:
+    void currentColorChanged(const QColor& color);
+
 private:
     class Private;
     std::unique_ptr<Private> p;
