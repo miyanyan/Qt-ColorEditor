@@ -389,7 +389,10 @@ public:
             int row = i / columnCount;
             int col = i % columnCount;
             auto btn = qobject_cast<QPushButton*>(layout->itemAtPosition(row, col)->widget());
-            btn->setStyleSheet(QString("QPushButton{background-color:%1}").arg(colors[i].name()));
+            auto style = QString("QPushButton{min-width:30px;min-height:30px;background-color:%1; border: 1px solid;}"
+                                 "QPushButton:pressed{border: 1px solid #ffd700;}")
+                             .arg(colors[i].name());
+            btn->setStyleSheet(style);
         }
     }
 };
