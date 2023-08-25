@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QImage>
 #include <QMouseEvent>
 #include <QPainter>
@@ -435,4 +436,60 @@ void ColorPalette::removeColor(const QColor& color, int row, int column)
     int index = row * p->columnCount + column;
     p->colors.remove(index);
     p->updateLayout(index, p->colors.size());
+}
+
+//--------------------------------------------- color preview -------------------------------------------------------
+class ColorPreview::Private
+{
+public:
+    QColor currentColor;
+    QColor previousColor;
+
+    QPushButton* pbtnCurrent;
+    QPushButton* pbtnPrevious;
+
+    Private(const QColor& color, QWidget* parent)
+        : currentColor(color)
+        , previousColor(color)
+        , pbtnCurrent(new QPushButton(parent))
+        , pbtnPrevious(new QPushButton(parent))
+    {
+        auto layout = new QHBoxLayout(parent);
+        layout->setSpacing(0);
+        layout->addWidget(pbtnPrevious);
+        layout->addWidget(pbtnCurrent);
+
+        setCurrent(color);
+    }
+
+    void setCurrent(const QColor& color)
+    {
+        previousColor = currentColor;
+        currentColor = color;
+
+        auto style = QString("QPushButton{min-width:30px;min-height:30px;background-color:%1;border:0px;}QPushButton:pressed{border: 1px solid #ffd700;}");
+        pbtnCurrent->setStyleSheet(style.arg(currentColor.name()));
+        pbtnPrevious->setStyleSheet(style.arg(previousColor.name()));
+    }
+};
+
+ColorPreview::ColorPreview(const QColor& color, QWidget* parent)
+    : QWidget(parent)
+    , p(new Private(color, this))
+{
+}
+
+void ColorPreview::setCurrentColor(const QColor& color)
+{
+    p->setCurrent(color);
+}
+
+QColor ColorPreview::currentColor() const
+{
+    return p->currentColor;
+}
+
+QColor ColorPreview::previousColor() const
+{
+    return p->previousColor;
 }

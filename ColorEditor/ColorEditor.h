@@ -132,3 +132,20 @@ private:
     std::unique_ptr<Private> p;
 };
 
+//--------------------------------------------- color preview -------------------------------------------------------
+class ColorPreview : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ColorPreview(const QColor& color, QWidget* parent = nullptr);
+    void setCurrentColor(const QColor& color);
+    QColor currentColor() const;
+    QColor previousColor() const;
+
+signals:
+    void currentColorChanged(const QColor& color);
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
