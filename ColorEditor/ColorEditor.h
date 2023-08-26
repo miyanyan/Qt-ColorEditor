@@ -16,14 +16,17 @@ class ICombination : public QObject
 public:
     explicit ICombination(QObject* parent = nullptr);
     virtual ~ICombination() = default;
-    virtual QString name() = 0;
-    virtual QVector<QColor> genColors(const QColor& color) = 0;
+    virtual QString name();
+    virtual QVector<QColor> genColors(const QColor& color);
+    void setFactorRange(double min, double max);
+    void serFactorValue(double value);
     // factor range: [0, 1]
-    void setFactor(double factor);
     double getFactor() const;
 
 private:
-    double m_factor;
+    double m_min;
+    double m_max;
+    double m_value;
 };
 
 class Complementary : public ICombination

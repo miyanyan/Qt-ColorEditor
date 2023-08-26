@@ -191,18 +191,36 @@ namespace colorcombo
 {
 ICombination::ICombination(QObject* parent)
     : QObject(parent)
-    , m_factor(0.5)
+    , m_min(0)
+    , m_max(1)
+    , m_value(0)
 {
 }
 
-void ICombination::setFactor(double factor)
+QString ICombination::name()
 {
-    m_factor = factor;
+    return "None";
+}
+
+QVector<QColor> ICombination::genColors(const QColor& color)
+{
+    return {};
+}
+
+void ICombination::setFactorRange(double min, double max)
+{
+    m_min = min;
+    m_max = max;
+}
+
+void ICombination::serFactorValue(double value)
+{
+    m_value = value;
 }
 
 double ICombination::getFactor() const
 {
-    return m_factor;
+    return m_value / (m_max - m_min);
 }
 
 Complementary::Complementary(QObject* parent)
