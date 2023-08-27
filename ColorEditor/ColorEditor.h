@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QDialog>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSlider>
@@ -122,6 +123,23 @@ private:
     std::unique_ptr<Private> p;
 };
 
+class ColorSpinHSlider : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ColorSpinHSlider(const QString& name, QWidget* parent);
+    void setGradient(const QColor& startColor, const QColor& stopColor);
+    void setValue(double value);
+    void setRange(double min, double max);
+
+signals:
+    void currentColorChanged(const QColor& color);
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
 //--------------------------------------------- color button -------------------------------------------------------
 class ColorButton : public QPushButton
 {
@@ -175,7 +193,7 @@ class ColorPreview : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ColorPreview(const QColor& color, QWidget* parent = nullptr);
+    explicit ColorPreview(QWidget* parent = nullptr);
     void setCurrentColor(const QColor& color);
     QColor currentColor() const;
     QColor previousColor() const;
@@ -202,6 +220,24 @@ public:
 signals:
     void colorClicked(const QColor& color);
     void combinationChanged(colorcombo::ICombination* combo);
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
+//------------------------------------------ color editor ----------------------------------
+class ColorEditor : public QDialog
+{
+    Q_OBJECT
+public:
+    explicit ColorEditor(const QColor& color = Qt::white, QWidget* parent = nullptr);
+
+    void setCurrentColor(const QColor& color);
+    QColor currentColor() const;
+
+signals:
+    void currentColorChanged(const QColor& color);
 
 private:
     class Private;
