@@ -15,18 +15,22 @@ class ICombination : public QObject
     Q_OBJECT
 public:
     explicit ICombination(QObject* parent = nullptr);
+    explicit ICombination(double min, double max, double value, bool rangeEnabled, QObject* parent = nullptr);
     virtual ~ICombination() = default;
     virtual QString name();
     virtual QVector<QColor> genColors(const QColor& color);
-    void setFactorRange(double min, double max);
-    void serFactorValue(double value);
-    // factor range: [0, 1]
-    double getFactor() const;
+    void setRange(double min, double max);
+    void serValue(double value);
+    double min() const;
+    double max() const;
+    double getValue() const;
+    bool rangeEnabled() const;
 
 private:
     double m_min;
     double m_max;
     double m_value;
+    bool m_rangeEnabled;
 };
 
 class Complementary : public ICombination
@@ -83,7 +87,7 @@ public:
     QColor getColor(int x, int y) const;
 
 signals:
-    void selectedColorChanged(const QColor& color);
+    void colorSelected(const QColor& color);
     void combinationColorChanged(const QVector<QColor>& colors);
 
 protected:
@@ -126,9 +130,11 @@ public:
     explicit ColorButton(QWidget* parent);
     void setColor(const QColor& color);
     void setBolderWidth(int width);
+    QColor color() const;
 
 signals:
-    void colorSelected(const QColor& color);
+    void colorClicked(const QColor& color);
+    void colorDroped(const QColor& color);
 
 protected:
     void mousePressEvent(QMouseEvent* e) override;
@@ -153,7 +159,11 @@ public:
     void removeColor(const QColor& color, int row, int column);
 
 signals:
-    void colorSelected(const QColor& color);
+    void colorClicked(const QColor& color);
+
+protected:
+    void dragEnterEvent(QDragEnterEvent* e) override;
+    void dropEvent(QDropEvent* e) override;
 
 private:
     class Private;
@@ -172,6 +182,26 @@ public:
 
 signals:
     void currentColorChanged(const QColor& color);
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
+//------------------------------------------- color combo widget ---------------------------
+class ColorComboWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ColorComboWidget(QWidget* parent = nullptr);
+
+    void addCombination(colorcombo::ICombination* combo);
+    void switchCombination();
+    void setColors(const QVector<QColor>& colors);
+
+signals:
+    void colorClicked(const QColor& color);
+    void combinationChanged(colorcombo::ICombination* combo);
 
 private:
     class Private;

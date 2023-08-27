@@ -1,5 +1,7 @@
 #include "ColorEditor.h"
 
+#include <queue>
+
 #include <QApplication>
 #include <QDebug>
 #include <QDrag>
@@ -12,6 +14,7 @@
 #include <QPushButton>
 #include <QScrollBar>
 #include <QSettings>
+#include <QSpinBox>
 
 //------------------------------------------------------- static color data --------------------------------------------
 struct StaticColorEditorData
@@ -38,6 +41,14 @@ struct StaticColorEditorData
         const QSettings settings(QSettings::UserScope, QStringLiteral("__ColorEditor"));
         int count = settings.value(QLatin1String("customCount")).toInt();
         customRgb.resize(count);
+        // if zero, init with standard
+        if (count == 0) {
+            for (auto color : standardRgb) {
+                customRgb.append(color);
+            }
+            return;
+        }
+        // otherwise, init with settings
         for (int i = 0; i < count; ++i) {
             const QVariant v = settings.value(QLatin1String("customColors/") + QString::number(i));
             if (v.isValid()) {
@@ -109,6 +120,7 @@ ColorWheel::ColorWheel(QWidget* parent)
 void ColorWheel::setColorCombination(colorcombo::ICombination* combination)
 {
     p->colorCombination = combination;
+    repaint();
 }
 
 void ColorWheel::setSelectedColor(const QColor& color)
@@ -174,7 +186,7 @@ void ColorWheel::processMouseEvent(QMouseEvent* e)
 {
     if (e->buttons() & Qt::LeftButton) {
         p->selectedColor = getColor(e->x(), e->y());
-        emit selectedColorChanged(p->selectedColor);
+        emit colorSelected(p->selectedColor);
         update();
     }
 }
@@ -194,6 +206,16 @@ ICombination::ICombination(QObject* parent)
     , m_min(0)
     , m_max(1)
     , m_value(0)
+    , m_rangeEnabled(false)
+{
+}
+
+ICombination::ICombination(double min, double max, double value, bool rangeEnabled, QObject* parent)
+    : QObject(parent)
+    , m_min(min)
+    , m_max(max)
+    , m_value(value)
+    , m_rangeEnabled(rangeEnabled)
 {
 }
 
@@ -207,20 +229,35 @@ QVector<QColor> ICombination::genColors(const QColor& color)
     return {};
 }
 
-void ICombination::setFactorRange(double min, double max)
+void ICombination::setRange(double min, double max)
 {
     m_min = min;
     m_max = max;
 }
 
-void ICombination::serFactorValue(double value)
+void ICombination::serValue(double value)
 {
     m_value = value;
 }
 
-double ICombination::getFactor() const
+double ICombination::min() const
 {
-    return m_value / (m_max - m_min);
+    return m_min;
+}
+
+double ICombination::max() const
+{
+    return m_max;
+}
+
+double ICombination::getValue() const
+{
+    return m_value;
+}
+
+bool ICombination::rangeEnabled() const
+{
+    return m_rangeEnabled;
 }
 
 Complementary::Complementary(QObject* parent)
@@ -239,7 +276,7 @@ QVector<QColor> Complementary::genColors(const QColor& color)
 }
 
 Monochromatic::Monochromatic(QObject* parent)
-    : ICombination(parent)
+    : ICombination(0, 1, 0.5, true, parent)
 {
 }
 
@@ -250,11 +287,11 @@ QString Monochromatic::name()
 
 QVector<QColor> Monochromatic::genColors(const QColor& color)
 {
-    return {QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), color.valueF() * getFactor())};
+    return {QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), color.valueF() * getValue())};
 }
 
 Analogous::Analogous(QObject* parent)
-    : ICombination(parent)
+    : ICombination(0, 180, 30, true, parent)
 {
 }
 
@@ -265,13 +302,13 @@ QString Analogous::name()
 
 QVector<QColor> Analogous::genColors(const QColor& color)
 {
-    int add = getFactor() * 180;
+    int add = getValue();
     return {QColor::fromHsv((color.hsvHue() + add) % 360, color.hsvSaturation(), color.value()),
             QColor::fromHsv((color.hsvHue() - add + 360) % 360, color.hsvSaturation(), color.value())};
 }
 
 Triadic::Triadic(QObject* parent)
-    : ICombination(parent)
+    : ICombination(0, 180, 120, true, parent)
 {
 }
 
@@ -282,12 +319,13 @@ QString Triadic::name()
 
 QVector<QColor> Triadic::genColors(const QColor& color)
 {
-    return {QColor::fromHsv((color.hsvHue() + 120) % 360, color.hsvSaturation(), color.value()),
-            QColor::fromHsv((color.hsvHue() - 120 + 360) % 360, color.hsvSaturation(), color.value())};
+    int add = getValue();
+    return {QColor::fromHsv((color.hsvHue() + add) % 360, color.hsvSaturation(), color.value()),
+            QColor::fromHsv((color.hsvHue() - add + 360) % 360, color.hsvSaturation(), color.value())};
 }
 
 Tetradic::Tetradic(QObject* parent)
-    : ICombination(parent)
+    : ICombination(-90, 90, true, parent)
 {
 }
 
@@ -308,10 +346,10 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
      * C : H + 180, S, V
      * D : H + 90 + factor * 180, S, V
      */
-    int add = getFactor() * 180;
-    return {QColor::fromHsv((color.hsvHue() - 90 + add + 360) % 360, color.hsvSaturation(), color.value()),
+    int add = getValue();
+    return {QColor::fromHsv((color.hsvHue() + add + 360) % 360, color.hsvSaturation(), color.value()),
             QColor::fromHsv((color.hsvHue() + 180) % 360, color.hsvSaturation(), color.value()),
-            QColor::fromHsv((color.hsvHue() + 90 + add + 360) % 360, color.hsvSaturation(), color.value())};
+            QColor::fromHsv((color.hsvHue() + add + 360) % 360, color.hsvSaturation(), color.value())};
 }
 } // namespace colorcombo
 
@@ -406,7 +444,7 @@ ColorButton::ColorButton(QWidget* parent)
     , p(new Private)
 {
     setAcceptDrops(true);
-    connect(this, &QPushButton::clicked, this, [this]() { emit colorSelected(p->color); });
+    connect(this, &QPushButton::clicked, this, [this]() { emit colorClicked(p->color); });
 }
 
 void ColorButton::setColor(const QColor& color)
@@ -419,6 +457,11 @@ void ColorButton::setBolderWidth(int width)
 {
     p->bolderWidth = width;
     p->updateStyle(this);
+}
+
+QColor ColorButton::color() const
+{
+    return p->color;
 }
 
 void ColorButton::mousePressEvent(QMouseEvent* e)
@@ -445,7 +488,6 @@ void ColorButton::mouseMoveEvent(QMouseEvent* e)
 
 void ColorButton::dragEnterEvent(QDragEnterEvent* e)
 {
-    qDebug() << "111111111";
     if (qvariant_cast<QColor>(e->mimeData()->colorData()).isValid())
         e->accept();
     else
@@ -454,16 +496,15 @@ void ColorButton::dragEnterEvent(QDragEnterEvent* e)
 
 void ColorButton::dragLeaveEvent(QDragLeaveEvent*)
 {
-    if (hasFocus())
-        parentWidget()->setFocus();
+    if (hasFocus()) parentWidget()->setFocus();
 }
 
 void ColorButton::dropEvent(QDropEvent* e)
 {
     auto color = qvariant_cast<QColor>(e->mimeData()->colorData());
-        qDebug() << color;
     if (color.isValid()) {
         setColor(color);
+        emit colorDroped(color);
         e->accept();
     }
     else {
@@ -509,6 +550,7 @@ ColorPalette::ColorPalette(int column, QWidget* parent)
     , p(new Private(column, this))
 {
     setWidgetResizable(true);
+    setAcceptDrops(true);
 }
 
 void ColorPalette::addColor(const QColor& color)
@@ -519,7 +561,7 @@ void ColorPalette::addColor(const QColor& color)
     auto btn = new ColorButton(this);
     btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     btn->setBolderWidth(1);
-    connect(btn, &ColorButton::colorSelected, this, &ColorPalette::colorSelected);
+    connect(btn, &ColorButton::colorClicked, this, &ColorPalette::colorClicked);
 
     auto layoutIndex = p->getLayoutIndex(index);
     p->layout->addWidget(btn, layoutIndex.first, layoutIndex.second);
@@ -545,39 +587,52 @@ void ColorPalette::removeColor(const QColor& color, int row, int column)
     p->updateLayout(index, p->colors.size());
 }
 
+void ColorPalette::dragEnterEvent(QDragEnterEvent* e)
+{
+    if (qvariant_cast<QColor>(e->mimeData()->colorData()).isValid())
+        e->accept();
+    else
+        e->ignore();
+}
+
+void ColorPalette::dropEvent(QDropEvent* e)
+{
+    auto color = qvariant_cast<QColor>(e->mimeData()->colorData());
+    if (color.isValid()) {
+        addColor(color);
+        e->accept();
+    }
+    else {
+        e->ignore();
+    }
+}
+
 //--------------------------------------------- color preview -------------------------------------------------------
 class ColorPreview::Private
 {
 public:
-    QColor currentColor;
-    QColor previousColor;
-
     ColorButton* pbtnCurrent;
     ColorButton* pbtnPrevious;
 
     Private(const QColor& color, QWidget* parent)
-        : currentColor(color)
-        , previousColor(color)
-        , pbtnCurrent(new ColorButton(parent))
+        : pbtnCurrent(new ColorButton(parent))
         , pbtnPrevious(new ColorButton(parent))
     {
         pbtnCurrent->setBolderWidth(0);
         pbtnPrevious->setBolderWidth(0);
+        pbtnCurrent->setColor(color);
+        pbtnPrevious->setColor(color);
 
         auto layout = new QHBoxLayout(parent);
         layout->setSpacing(0);
         layout->addWidget(pbtnPrevious);
         layout->addWidget(pbtnCurrent);
-
-        setCurrent(color);
     }
 
     void setCurrent(const QColor& color)
     {
-        previousColor = currentColor;
-        currentColor = color;
-
-        pbtnCurrent->setColor(currentColor);
+        auto previousColor = pbtnCurrent->color();
+        pbtnCurrent->setColor(color);
         pbtnPrevious->setColor(previousColor);
     }
 };
@@ -586,6 +641,8 @@ ColorPreview::ColorPreview(const QColor& color, QWidget* parent)
     : QWidget(parent)
     , p(new Private(color, this))
 {
+    // only emit when current color changed
+    connect(p->pbtnCurrent, &ColorButton::colorDroped, this, &ColorPreview::currentColorChanged);
 }
 
 void ColorPreview::setCurrentColor(const QColor& color)
@@ -595,10 +652,103 @@ void ColorPreview::setCurrentColor(const QColor& color)
 
 QColor ColorPreview::currentColor() const
 {
-    return p->currentColor;
+    return p->pbtnCurrent->color();
 }
 
 QColor ColorPreview::previousColor() const
 {
-    return p->previousColor;
+    return p->pbtnPrevious->color();
+}
+
+//------------------------------------------- color combo widget ---------------------------
+class ColorComboWidget::Private
+{
+public:
+    static constexpr int factor = 360;
+    std::queue<colorcombo::ICombination*> combs;
+    QHBoxLayout* hlayout = nullptr;
+    QPushButton* switchBtn = nullptr;
+    QSlider* factorSlider = nullptr;
+    QDoubleSpinBox* factorSpinbox = nullptr;
+
+    Private(QWidget* parent)
+    {
+        factorSpinbox = new QDoubleSpinBox(parent);
+        factorSlider = new QSlider(Qt::Horizontal, parent);
+        switchBtn = new QPushButton(parent);
+        factorSpinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        factorSpinbox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        switchBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+        auto layout = new QGridLayout(parent);
+        hlayout = new QHBoxLayout();
+        layout->addLayout(hlayout, 0, 0, 1, 3);
+        layout->addWidget(switchBtn, 0, 3, 1, 1);
+        layout->addWidget(factorSpinbox, 1, 0, 1, 1);
+        layout->addWidget(factorSlider, 1, 1, 1, 3);
+
+        connect(factorSlider, &QSlider::valueChanged, factorSpinbox, [this](int value){
+            factorSpinbox->setValue(1.0 * value / factor);
+        });
+        connect(factorSpinbox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), factorSlider, [this](double value) {
+            factorSlider->setValue(value * factor);
+        });
+    }
+};
+
+ColorComboWidget::ColorComboWidget(QWidget* parent)
+    : QWidget(parent)
+    , p(new Private(this))
+{
+    // dummy
+    addCombination(new colorcombo::ICombination(this));
+    switchCombination();
+}
+
+void ColorComboWidget::addCombination(colorcombo::ICombination* combo)
+{
+    p->combs.push(combo);
+}
+
+void ColorComboWidget::setColors(const QVector<QColor>& colors)
+{
+    for (int i = 0; i < colors.size(); ++i) {
+        auto btn = qobject_cast<ColorButton*>(p->hlayout->itemAt(i)->widget());
+        btn->setColor(colors[i]);
+    }  
+}
+
+void ColorComboWidget::switchCombination() 
+{
+    if (p->combs.empty()) return;
+
+    auto front = p->combs.front();
+    p->combs.pop();
+    p->combs.push(front);
+
+    auto currentComb = p->combs.front();
+    emit combinationChanged(currentComb);
+
+    // make slider looks like double slider
+    p->factorSlider->setRange(currentComb->min() * p->factor, currentComb->max() * p->factor);
+    p->factorSpinbox->setRange(currentComb->min(), currentComb->max());
+    p->factorSpinbox->setSingleStep((currentComb->max() - currentComb->min()) / p->factor);
+    p->factorSpinbox->setValue(currentComb->getValue());
+
+    // clear
+    for (int i = 0; i < p->hlayout->count(); ++i) {
+        auto itemw = p->hlayout->itemAt(i)->widget();
+        p->hlayout->removeWidget(itemw);
+        delete itemw;
+    }
+    // add
+    auto colors = currentComb->genColors(Qt::white);
+    int size = colors.size() + 1;
+    for (int i = 0; i < size; ++i) {
+        auto btn = new ColorButton(this);
+        btn->setBolderWidth(0);
+        btn->setAcceptDrops(false); // color can't be changed by drop
+        connect(btn, &ColorButton::colorClicked, this, &ColorComboWidget::colorClicked);
+        p->hlayout->addWidget(btn);
+    }
 }
