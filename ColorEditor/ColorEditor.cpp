@@ -362,8 +362,27 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
 class ColorSlider::Private
 {
 public:
-    QColor startColor;
-    QColor stopColor;
+    QVector<QPair<float, QColor>> colors;
+
+    QColor colorAt(float factor)
+    {
+        auto interpolate = [](const QPair<float, QColor>& left, const QPair<float, QColor>& right, float value) {
+            float f = (value - left.first) / (right.first - left.first);
+            return QColor::fromRgbF(left.second.redF() + f * (right.second.redF() - left.second.redF()),
+                                    left.second.greenF() + f * (right.second.greenF() - left.second.greenF()),
+                                    left.second.blueF() + f * (right.second.blueF() - left.second.blueF()));
+        };
+
+        // assume it is ordered, and no same value
+        for (int i = 0; i < colors.size(); ++i) {
+            if (colors[i].first > factor) {
+                float left = i > 0 ? colors[i - 1].first : 0;
+                QColor leftColor = i > 0 ? colors[i - 1].second : QColor(Qt::black);
+                return interpolate({left, leftColor}, colors[i], factor);
+            }
+        }
+        return interpolate(colors.back(), {1, QColor(Qt::white)}, factor);
+    }
 };
 
 ColorSlider::ColorSlider(QWidget* parent)
@@ -374,56 +393,61 @@ ColorSlider::ColorSlider(QWidget* parent)
         int minv = this->minimum();
         int maxv = this->maximum();
         float factor = 1.0f * (value - minv) / (maxv - minv);
-        int r = p->startColor.red() + factor * (p->stopColor.red() - p->startColor.red());
-        int g = p->startColor.green() + factor * (p->stopColor.green() - p->startColor.green());
-        int b = p->startColor.blue() + factor * (p->stopColor.blue() - p->startColor.blue());
-        emit currentColorChanged(QColor(r, g, b));
+        emit currentColorChanged(p->colorAt(factor));
     });
 }
 
 void ColorSlider::setGradient(const QColor& startColor, const QColor& stopColor)
 {
-    p->startColor = startColor;
-    p->stopColor = stopColor;
+    setGradient({{0, startColor}, {1, stopColor}});
+}
+
+void ColorSlider::setGradient(const QVector<QPair<float, QColor>>& colors)
+{
+    if (colors.size() <= 1) {
+        qWarning() << "ColorSlider::setGradient: colors size should >= 2";
+        return;
+    }
+
+    p->colors = colors;
 
     QString ori;
     float x1, y1, x2, y2;
     if (orientation() == Qt::Horizontal) {
         ori = "horizontal";
         x1 = 0;
-        y1 = 0.5f;
+        y1 = 0;
         x2 = 1;
-        y2 = 0.5f;
+        y2 = 0;
     }
     else {
         ori = "vertical";
-        x1 = 0.5f;
+        x1 = 0;
         y1 = 0;
-        x2 = 0.5f;
+        x2 = 0;
         y2 = 1;
     }
 
-    auto style = QString("QSlider::groove:%1{background:qlineargradient(x1:%2,y1:%3,x2:%4,y2:%5,stop:0 %6,stop:1 %7);}"
+    QString gradientStyle;
+    for (const auto& color : colors) {
+        gradientStyle += QString(",stop:%1 %2").arg(color.first).arg(color.second.name());
+    }
+
+    auto style = QString("QSlider::groove:%1{background:qlineargradient(x1:%2,y1:%3,x2:%4,y2:%5 %6);}"
                          "QSlider::handle:%1{background:#5C5C5C;border:1px solid;height:4px;width:4px}")
                      .arg(ori)
                      .arg(x1)
                      .arg(y1)
                      .arg(x2)
                      .arg(y2)
-                     .arg(startColor.name())
-                     .arg(stopColor.name());
+                     .arg(gradientStyle);
 
     setStyleSheet(style);
 }
 
-QColor ColorSlider::startColor() const
+QVector<QPair<float, QColor>> ColorSlider::gradientColor() const
 {
-    return p->startColor;
-}
-
-QColor ColorSlider::stopColor() const
-{
-    return p->stopColor;
+    return p->colors;
 }
 
 class ColorSpinHSlider::Private
@@ -462,6 +486,11 @@ void ColorSpinHSlider::setGradient(const QColor& startColor, const QColor& stopC
     p->slider->setGradient(startColor, stopColor);
 }
 
+void ColorSpinHSlider::setGradient(const QVector<QPair<float, QColor>>& colors)
+{
+    p->slider->setGradient(colors);
+}
+
 void ColorSpinHSlider::setValue(double value)
 {
     p->spinbox->setValue(value);
@@ -471,6 +500,11 @@ void ColorSpinHSlider::setRange(double min, double max)
 {
     p->slider->setRange(min, max);
     p->spinbox->setRange(min, max);
+}
+
+QVector<QPair<float, QColor>> ColorSpinHSlider::gradientColor() const
+{
+    return p->slider->gradientColor();
 }
 
 //--------------------------------------------- color button -------------------------------------------------------
@@ -666,12 +700,15 @@ public:
     ColorButton* pbtnCurrent;
     ColorButton* pbtnPrevious;
 
-    Private(QWidget* parent)
+    Private(const QColor& color, QWidget* parent)
         : pbtnCurrent(new ColorButton(parent))
         , pbtnPrevious(new ColorButton(parent))
     {
         pbtnCurrent->setBolderWidth(0);
         pbtnPrevious->setBolderWidth(0);
+
+        pbtnCurrent->setColor(color);
+        pbtnPrevious->setColor(color);
 
         auto layout = new QHBoxLayout(parent);
         layout->setSpacing(0);
@@ -679,17 +716,12 @@ public:
         layout->addWidget(pbtnCurrent);
     }
 
-    void setCurrent(const QColor& color)
-    {
-        auto previousColor = pbtnCurrent->color();
-        pbtnCurrent->setColor(color);
-        pbtnPrevious->setColor(previousColor);
-    }
+    void setCurrent(const QColor& color) { pbtnCurrent->setColor(color); }
 };
 
-ColorPreview::ColorPreview(QWidget* parent)
+ColorPreview::ColorPreview(const QColor& color, QWidget* parent)
     : QWidget(parent)
-    , p(new Private(this))
+    , p(new Private(color, this))
 {
     // only emit when current color changed
     connect(p->pbtnCurrent, &ColorButton::colorDroped, this, &ColorPreview::currentColorChanged);
@@ -823,19 +855,23 @@ public:
         // left
         wheel = new ColorWheel(parent);
         colorText = new QLineEdit(parent);
-        preview = new ColorPreview(parent);
+        preview = new ColorPreview(color, parent);
         combo = new ColorComboWidget(parent);
         previewGroup = new QGroupBox(tr("Previous/Current Colors"), parent);
         comboGroup = new QGroupBox(tr("Color Combination"), parent);
 
-        auto previwGroupLayout = new QHBoxLayout(previewGroup);
-        previwGroupLayout->addWidget(preview);
+        previewGroup->setContentsMargins(0, 0, 0, 0);
+        auto previewGroupLayout = new QHBoxLayout(previewGroup);
+        previewGroupLayout->setMargin(0);
+        previewGroupLayout->addWidget(preview);
 
         auto comboGroupLayout = new QHBoxLayout(comboGroup);
+        comboGroupLayout->setMargin(0);
         comboGroupLayout->addWidget(combo);
 
         auto leftWidget = new QWidget(parent);
         auto leftLayout = new QVBoxLayout(leftWidget);
+        leftLayout->setMargin(0);
         leftLayout->addWidget(wheel, 5);
         leftLayout->addWidget(colorText, 1);
         leftLayout->addWidget(previewGroup, 2);
@@ -853,12 +889,14 @@ public:
         rSlider->setRange(0, 255);
         gSlider->setRange(0, 255);
         bSlider->setRange(0, 255);
-        hSlider->setRange(0, 360);
+        hSlider->setRange(0, 359);
         sSlider->setRange(0, 255);
         vSlider->setRange(0, 255);
 
         auto rightWidget = new QWidget(parent);
         auto rightLayout = new QVBoxLayout(rightWidget);
+        rightLayout->setMargin(0);
+        rightLayout->setSpacing(0);
         rightLayout->addWidget(palette, 6);
         rightLayout->addWidget(rSlider, 1);
         rightLayout->addWidget(gSlider, 1);
@@ -870,11 +908,11 @@ public:
         auto splitter = new QSplitter(parent);
         splitter->addWidget(leftWidget);
         splitter->addWidget(rightWidget);
+        splitter->setStretchFactor(0, 1);
+        splitter->setStretchFactor(1, 3);
 
         auto layout = new QHBoxLayout(parent);
         layout->addWidget(splitter);
-
-        setCurrentColor(color);
     }
 
     void blockSignals(bool block)
@@ -891,43 +929,59 @@ public:
         sSlider->blockSignals(block);
         vSlider->blockSignals(block);
     }
-
-    void setCurrentColor(const QColor& color)
-    {
-        blockSignals(true);
-        wheel->setSelectedColor(color);
-        colorText->setText(color.name());
-        preview->setCurrentColor(color);
-
-        rSlider->setGradient(QColor(0, color.green(), color.blue()), QColor(255, color.green(), color.blue()));
-        gSlider->setGradient(QColor(color.red(), 0, color.blue()), QColor(color.red(), 255, color.blue()));
-        bSlider->setGradient(QColor(color.red(), color.green(), 0), QColor(color.red(), color.green(), 255));
-        hSlider->setGradient(QColor::fromHsvF(0, color.hsvSaturationF(), color.valueF()), QColor::fromHsvF(1, color.hsvSaturationF(), color.valueF()));
-        sSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), 0, color.valueF()), QColor::fromHsvF(color.hsvHueF(), 1, color.valueF()));
-        vSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 0), QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 1));
-
-        rSlider->setValue(color.redF());
-        gSlider->setValue(color.green());
-        bSlider->setValue(color.blue());
-        hSlider->setValue(color.hsvHue());
-        sSlider->setValue(color.hsvSaturationF());
-        vSlider->setValue(color.valueF());
-        blockSignals(false);
-    }
 };
 
 ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
     : QDialog(parent)
     , p(new Private(color, this))
 {
+    setCurrentColor(color);
+
+    // init colors for palette
+    staticColorEditorData->readSettings();
+    for (const auto& color : staticColorEditorData->customRgb) {
+        p->palette->addColor(color);
+    }
+
+    // signals
+    connect(p->wheel, &ColorWheel::colorSelected, this, &ColorEditor::setCurrentColor);
 }
 
 void ColorEditor::setCurrentColor(const QColor& color)
 {
-    p->setCurrentColor(color);
+    blockSignals(true);
+    p->wheel->setSelectedColor(color);
+    p->colorText->setText(color.name());
+    p->preview->setCurrentColor(color);
+
+    p->rSlider->setGradient(QColor(0, color.green(), color.blue()), QColor(255, color.green(), color.blue()));
+    p->gSlider->setGradient(QColor(color.red(), 0, color.blue()), QColor(color.red(), 255, color.blue()));
+    p->bSlider->setGradient(QColor(color.red(), color.green(), 0), QColor(color.red(), color.green(), 255));
+    // hSlider is unique
+    static QVector<QPair<float, QColor>> hColors;
+    for (int i = 0; i <= 6; ++i) {
+        float f = 1.0 * i / 6;
+        hColors.push_back({f, QColor::fromHsvF(f, color.hsvSaturationF(), color.valueF())});
+    }
+    p->hSlider->setGradient(hColors);
+    p->sSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), 0, color.valueF()), QColor::fromHsvF(color.hsvHueF(), 1, color.valueF()));
+    p->vSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 0), QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 1));
+
+    p->rSlider->setValue(color.red());
+    p->gSlider->setValue(color.green());
+    p->bSlider->setValue(color.blue());
+    p->hSlider->setValue(color.hsvHue());
+    p->sSlider->setValue(color.hsvSaturation());
+    p->vSlider->setValue(color.value());
+    blockSignals(false);
 }
 
 QColor ColorEditor::currentColor() const
 {
     return p->preview->currentColor();
+}
+
+ColorEditor::~ColorEditor()
+{
+    staticColorEditorData->writeSettings();
 }

@@ -112,8 +112,8 @@ class ColorSlider : public QSlider
 public:
     explicit ColorSlider(QWidget* parent = nullptr);
     void setGradient(const QColor& startColor, const QColor& stopColor);
-    QColor startColor() const;
-    QColor stopColor() const;
+    void setGradient(const QVector<QPair<float, QColor>>& colors);
+    QVector<QPair<float, QColor>> gradientColor() const;
 
 signals:
     void currentColorChanged(const QColor& color);
@@ -129,8 +129,10 @@ class ColorSpinHSlider : public QWidget
 public:
     explicit ColorSpinHSlider(const QString& name, QWidget* parent);
     void setGradient(const QColor& startColor, const QColor& stopColor);
+    void setGradient(const QVector<QPair<float, QColor>>& colors);
     void setValue(double value);
     void setRange(double min, double max);
+    QVector<QPair<float, QColor>> gradientColor() const;
 
 signals:
     void currentColorChanged(const QColor& color);
@@ -193,7 +195,7 @@ class ColorPreview : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ColorPreview(QWidget* parent = nullptr);
+    explicit ColorPreview(const QColor& color, QWidget* parent = nullptr);
     void setCurrentColor(const QColor& color);
     QColor currentColor() const;
     QColor previousColor() const;
@@ -232,6 +234,7 @@ class ColorEditor : public QDialog
     Q_OBJECT
 public:
     explicit ColorEditor(const QColor& color = Qt::white, QWidget* parent = nullptr);
+    ~ColorEditor();
 
     void setCurrentColor(const QColor& color);
     QColor currentColor() const;
