@@ -850,6 +850,8 @@ public:
     ColorSpinHSlider* sSlider;
     ColorSpinHSlider* vSlider;
 
+    QColor curColor;
+
     Private(const QColor& color, QWidget* parent)
     {
         // left
@@ -929,6 +931,43 @@ public:
         sSlider->blockSignals(block);
         vSlider->blockSignals(block);
     }
+
+    void setGradient(const QColor& color) 
+    {
+        static bool init = true;
+        bool rChanged = color.red() != curColor.red();
+        bool gChanged = color.green() != curColor.green();
+        bool bChanged = color.blue() != curColor.blue();
+        bool hChanged = color.hsvHue() != curColor.hsvHue();
+        bool sChanged = color.hsvSaturation() != curColor.hsvSaturation();
+        bool vChanged = color.value() != curColor.value();
+
+        if (gChanged || bChanged || init) {
+            rSlider->setGradient(QColor(0, color.green(), color.blue()), QColor(255, color.green(), color.blue()));
+        }
+        if (rChanged || bChanged || init) {
+            gSlider->setGradient(QColor(color.red(), 0, color.blue()), QColor(color.red(), 255, color.blue()));
+        }
+        if (rChanged || gChanged || init) {
+            bSlider->setGradient(QColor(color.red(), color.green(), 0), QColor(color.red(), color.green(), 255));
+        }
+        if (hChanged || vChanged || init) {
+            sSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), 0, color.valueF()), QColor::fromHsvF(color.hsvHueF(), 1, color.valueF()));
+        }
+        if (hChanged || sChanged || init) {
+            vSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 0), QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 1));
+        }
+        // hSlider is unique
+        static QVector<QPair<float, QColor>> hColors(7);
+        if (sChanged || vChanged || init) {
+            for (int i = 0; i < hColors.size(); ++i) {
+                float f = 1.0 * i / (hColors.size() - 1);
+                hColors[i] = {f, QColor::fromHsvF(f, color.hsvSaturationF(), color.valueF())};
+            }
+            hSlider->setGradient(hColors);
+        }
+        init = false;
+    }
 };
 
 ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
@@ -954,18 +993,7 @@ void ColorEditor::setCurrentColor(const QColor& color)
     p->colorText->setText(color.name());
     p->preview->setCurrentColor(color);
 
-    p->rSlider->setGradient(QColor(0, color.green(), color.blue()), QColor(255, color.green(), color.blue()));
-    p->gSlider->setGradient(QColor(color.red(), 0, color.blue()), QColor(color.red(), 255, color.blue()));
-    p->bSlider->setGradient(QColor(color.red(), color.green(), 0), QColor(color.red(), color.green(), 255));
-    // hSlider is unique
-    static QVector<QPair<float, QColor>> hColors;
-    for (int i = 0; i <= 6; ++i) {
-        float f = 1.0 * i / 6;
-        hColors.push_back({f, QColor::fromHsvF(f, color.hsvSaturationF(), color.valueF())});
-    }
-    p->hSlider->setGradient(hColors);
-    p->sSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), 0, color.valueF()), QColor::fromHsvF(color.hsvHueF(), 1, color.valueF()));
-    p->vSlider->setGradient(QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 0), QColor::fromHsvF(color.hsvHueF(), color.hsvSaturationF(), 1));
+    p->setGradient(color);
 
     p->rSlider->setValue(color.red());
     p->gSlider->setValue(color.green());
@@ -974,6 +1002,8 @@ void ColorEditor::setCurrentColor(const QColor& color)
     p->sSlider->setValue(color.hsvSaturation());
     p->vSlider->setValue(color.value());
     blockSignals(false);
+
+    p->curColor = color;
 }
 
 QColor ColorEditor::currentColor() const
