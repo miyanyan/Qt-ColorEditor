@@ -840,12 +840,24 @@ void ColorComboWidget::switchCombination()
     }
 }
 
+//------------------------------------------ color lineedit --------------------------------
+
+ColorLineEdit::ColorLineEdit(QWidget* parent)
+    : QLineEdit(parent)
+{
+    connect(this, &ColorLineEdit::editingFinished, this, [this]() { emit currentColorChanged(QColor(text())); });
+}
+void ColorLineEdit::setColor(const QColor& color)
+{
+    setText(color.name());
+}
+
 //------------------------------------------ color editor ----------------------------------
 class ColorEditor::Private
 {
 public:
     ColorWheel* wheel;
-    QLineEdit* colorText;
+    ColorLineEdit* colorText;
     ColorPreview* preview;
     ColorComboWidget* combo;
     QGroupBox* previewGroup;
@@ -864,7 +876,7 @@ public:
     {
         // left
         wheel = new ColorWheel(parent);
-        colorText = new QLineEdit(parent);
+        colorText = new ColorLineEdit(parent);
         preview = new ColorPreview(color, parent);
         combo = new ColorComboWidget(parent);
         previewGroup = new QGroupBox(tr("Previous/Current Colors"), parent);
@@ -940,7 +952,7 @@ public:
         vSlider->blockSignals(block);
     }
 
-    void setGradient(const QColor& color) 
+    void setGradient(const QColor& color)
     {
         static bool init = true;
         bool rChanged = color.red() != curColor.red();
@@ -992,6 +1004,7 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
 
     // signals
     connect(p->wheel, &ColorWheel::colorSelected, this, &ColorEditor::setCurrentColor);
+    connect(p->colorText, &ColorLineEdit::currentColorChanged, this, &ColorEditor::setCurrentColor);
 }
 
 void ColorEditor::setCurrentColor(const QColor& color)

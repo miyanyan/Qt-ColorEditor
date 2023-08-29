@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QDialog>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSlider>
@@ -226,6 +227,18 @@ signals:
 private:
     class Private;
     std::unique_ptr<Private> p;
+};
+
+//------------------------------------------ color lineedit --------------------------------
+class ColorLineEdit : public QLineEdit
+{
+    Q_OBJECT
+public:
+    explicit ColorLineEdit(QWidget* parent = nullptr);
+    void setColor(const QColor& color);
+
+signals:
+    void currentColorChanged(const QColor& color);
 };
 
 //------------------------------------------ color editor ----------------------------------
