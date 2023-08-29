@@ -130,7 +130,13 @@ void ColorWheel::setColorCombination(colorcombo::ICombination* combination)
 
 void ColorWheel::setSelectedColor(const QColor& color)
 {
-    p->selectedColor = color;
+    if (color.value() != p->selectedColor.value()) {
+        p->selectedColor = color;
+        p->renderWheel(this->contentsRect());
+    }
+    else {
+        p->selectedColor = color;
+    }
     update();
 }
 
