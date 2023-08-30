@@ -367,6 +367,29 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
 } // namespace colorcombo
 
 //--------------------------------------------------- color slider -------------------------------------------
+void JumpableSlider::mousePressEvent(QMouseEvent* e)
+{
+    if (e->button() == Qt::LeftButton) {
+        if (orientation() == Qt::Vertical)
+            setValue(minimum() + ((maximum() - minimum()) * (height() - e->y())) / height());
+        else
+            setValue(minimum() + ((maximum() - minimum()) * e->x()) / width());
+
+        e->accept();
+    }
+    QSlider::mousePressEvent(e);
+}
+
+void JumpableSlider::mouseMoveEvent(QMouseEvent* e)
+{
+    QSlider::mouseMoveEvent(e);
+}
+
+void JumpableSlider::mouseReleaseEvent(QMouseEvent* e)
+{
+    QSlider::mouseReleaseEvent(e);
+}
+
 class ColorSlider::Private
 {
 public:
@@ -374,7 +397,7 @@ public:
 };
 
 ColorSlider::ColorSlider(QWidget* parent)
-    : QSlider(Qt::Horizontal, parent)
+    : JumpableSlider(Qt::Horizontal, parent)
     , p(new Private)
 {
 }
@@ -430,29 +453,6 @@ void ColorSlider::setGradient(const QVector<QPair<float, QColor>>& colors)
 QVector<QPair<float, QColor>> ColorSlider::gradientColor() const
 {
     return p->colors;
-}
-
-void ColorSlider::mousePressEvent(QMouseEvent* e)
-{
-    if (e->button() == Qt::LeftButton) {
-        if (orientation() == Qt::Vertical)
-            setValue(minimum() + ((maximum() - minimum()) * (height() - e->y())) / height());
-        else
-            setValue(minimum() + ((maximum() - minimum()) * e->x()) / width());
-
-        e->accept();
-    }
-    QSlider::mousePressEvent(e);
-}
-
-void ColorSlider::mouseMoveEvent(QMouseEvent* e)
-{
-    QSlider::mouseMoveEvent(e);
-}
-
-void ColorSlider::mouseReleaseEvent(QMouseEvent* e)
-{
-    QSlider::mouseReleaseEvent(e);
 }
 
 class ColorSpinHSlider::Private
@@ -709,6 +709,9 @@ public:
         : pbtnCurrent(new ColorButton(parent))
         , pbtnPrevious(new ColorButton(parent))
     {
+        pbtnCurrent->setAcceptDrops(true);
+        pbtnPrevious->setAcceptDrops(false);
+
         pbtnCurrent->setBolderWidth(0);
         pbtnPrevious->setBolderWidth(0);
 
@@ -755,13 +758,13 @@ public:
     std::queue<colorcombo::ICombination*> combs;
     QHBoxLayout* hlayout = nullptr;
     QPushButton* switchBtn = nullptr;
-    QSlider* factorSlider = nullptr;
+    JumpableSlider* factorSlider = nullptr;
     QDoubleSpinBox* factorSpinbox = nullptr;
 
     Private(QWidget* parent)
     {
         factorSpinbox = new QDoubleSpinBox(parent);
-        factorSlider = new QSlider(Qt::Horizontal, parent);
+        factorSlider = new JumpableSlider(Qt::Horizontal, parent);
         switchBtn = new QPushButton(parent);
         factorSpinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
         factorSpinbox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -769,6 +772,7 @@ public:
 
         auto layout = new QGridLayout(parent);
         hlayout = new QHBoxLayout();
+        hlayout->setSpacing(0);
         layout->addLayout(hlayout, 0, 0, 1, 3);
         layout->addWidget(switchBtn, 0, 3, 1, 1);
         layout->addWidget(factorSpinbox, 1, 0, 1, 1);
@@ -787,11 +791,28 @@ ColorComboWidget::ColorComboWidget(QWidget* parent)
     // dummy
     addCombination(new colorcombo::ICombination(this));
     switchCombination();
+
+    connect(p->switchBtn, &QPushButton::clicked, this, &ColorComboWidget::switchCombination);
+    connect(p->factorSpinbox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double value) {
+        auto comb = p->combs.front();
+        comb->serValue(value);
+        emit combinationChanged(comb);
+    });
 }
 
 void ColorComboWidget::addCombination(colorcombo::ICombination* combo)
 {
     p->combs.push(combo);
+}
+
+void ColorComboWidget::clearCombination()
+{
+    while (!p->combs.empty()) {
+        p->combs.pop();
+    }
+    // dummy
+    addCombination(new colorcombo::ICombination(this));
+    switchCombination();
 }
 
 void ColorComboWidget::setColors(const QVector<QColor>& colors)
@@ -811,7 +832,25 @@ void ColorComboWidget::switchCombination()
     p->combs.push(front);
 
     auto currentComb = p->combs.front();
-    emit combinationChanged(currentComb);
+
+    // clear
+    QLayoutItem* item;
+    while (item = p->hlayout->takeAt(0)) {
+        if (item->widget()) {
+            delete item->widget();
+        }
+        delete item;
+    }
+    // add
+    auto colors = currentComb->genColors(Qt::white);
+    int size = colors.size() + 1;
+    for (int i = 0; i < size; ++i) {
+        auto btn = new ColorButton(this);
+        btn->setBolderWidth(1);
+        btn->setAcceptDrops(false); // color can't be changed by drop
+        connect(btn, &ColorButton::colorClicked, this, &ColorComboWidget::colorClicked);
+        p->hlayout->addWidget(btn);
+    }
 
     // make slider looks like double slider
     p->factorSlider->setRange(currentComb->min() * p->factor, currentComb->max() * p->factor);
@@ -819,22 +858,7 @@ void ColorComboWidget::switchCombination()
     p->factorSpinbox->setSingleStep((currentComb->max() - currentComb->min()) / p->factor);
     p->factorSpinbox->setValue(currentComb->getValue());
 
-    // clear
-    for (int i = 0; i < p->hlayout->count(); ++i) {
-        auto itemw = p->hlayout->itemAt(i)->widget();
-        p->hlayout->removeWidget(itemw);
-        delete itemw;
-    }
-    // add
-    auto colors = currentComb->genColors(Qt::white);
-    int size = colors.size() + 1;
-    for (int i = 0; i < size; ++i) {
-        auto btn = new ColorButton(this);
-        btn->setBolderWidth(0);
-        btn->setAcceptDrops(false); // color can't be changed by drop
-        connect(btn, &ColorButton::colorClicked, this, &ColorComboWidget::colorClicked);
-        p->hlayout->addWidget(btn);
-    }
+    emit combinationChanged(currentComb);
 }
 
 //------------------------------------------ color lineedit --------------------------------
@@ -993,6 +1017,13 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
 {
     setCurrentColor(color);
 
+    // init combinations
+    p->combo->addCombination(new colorcombo::Analogous(this));
+    p->combo->addCombination(new colorcombo::Complementary(this));
+    p->combo->addCombination(new colorcombo::Monochromatic(this));
+    p->combo->addCombination(new colorcombo::Triadic(this));
+    p->combo->addCombination(new colorcombo::Tetradic(this));
+
     // init colors for palette
     staticColorEditorData->readSettings();
     for (const auto& color : staticColorEditorData->customRgb) {
@@ -1000,6 +1031,12 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
     }
 
     // signals
+    connect(p->wheel, &ColorWheel::combinationColorChanged, p->combo, &ColorComboWidget::setColors);
+    connect(p->combo, &ColorComboWidget::combinationChanged, this, [this](colorcombo::ICombination* combination) {
+        p->wheel->setColorCombination(combination);
+        p->comboGroup->setTitle(combination->name());
+    });
+
     connect(p->wheel, &ColorWheel::colorSelected, this, &ColorEditor::setCurrentColor);
     connect(p->colorText, &ColorLineEdit::currentColorChanged, this, &ColorEditor::setCurrentColor);
     connect(p->preview, &ColorPreview::currentColorChanged, this, &ColorEditor::setCurrentColor);
@@ -1009,15 +1046,31 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
         setCurrentColor(color);
         p->wheel->setEnabled(true);
     });
-    connect(p->rSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) { setCurrentColor(QColor(value, p->curColor.green(), p->curColor.blue())); });
-    connect(p->gSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) { setCurrentColor(QColor(p->curColor.red(), value, p->curColor.blue())); });
-    connect(p->bSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) { setCurrentColor(QColor(p->curColor.red(), p->curColor.green(), value)); });
-    connect(p->hSlider, &ColorSpinHSlider::valueChanged, this,
-            [this](int value) { setCurrentColor(QColor::fromHsv(value, p->curColor.hsvSaturation(), p->curColor.value())); });
-    connect(p->sSlider, &ColorSpinHSlider::valueChanged, this,
-            [this](int value) { setCurrentColor(QColor::fromHsv(p->curColor.hsvHue(), value, p->curColor.value())); });
-    connect(p->vSlider, &ColorSpinHSlider::valueChanged, this,
-            [this](int value) { setCurrentColor(QColor::fromHsv(p->curColor.hsvHue(), p->curColor.hsvSaturation(), value)); });
+
+    connect(p->rSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor(value, p->curColor.green(), p->curColor.blue());
+        setCurrentColor(color);
+    });
+    connect(p->gSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor(p->curColor.red(), value, p->curColor.blue());
+        setCurrentColor(color);
+    });
+    connect(p->bSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor(p->curColor.red(), p->curColor.green(), value);
+        setCurrentColor(color);
+    });
+    connect(p->hSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor::fromHsv(value, p->curColor.hsvSaturation(), p->curColor.value());
+        setCurrentColor(color);
+    });
+    connect(p->sSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor::fromHsv(p->curColor.hsvHue(), value, p->curColor.value());
+        setCurrentColor(color);
+    });
+    connect(p->vSlider, &ColorSpinHSlider::valueChanged, this, [this](int value) {
+        auto color = QColor::fromHsv(p->curColor.hsvHue(), p->curColor.hsvSaturation(), value);
+        setCurrentColor(color);
+    });
 }
 
 void ColorEditor::setCurrentColor(const QColor& color)
@@ -1048,4 +1101,12 @@ QColor ColorEditor::currentColor() const
 ColorEditor::~ColorEditor()
 {
     staticColorEditorData->writeSettings();
+}
+
+void ColorEditor::setColorCombinations(const QVector<colorcombo::ICombination*> combinations)
+{
+    p->combo->clearCombination();
+    for (const auto& combination : combinations) {
+        p->combo->addCombination(combination);
+    }
 }

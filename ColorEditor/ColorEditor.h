@@ -9,7 +9,7 @@
 #include <QSlider>
 #include <QWidget>
 
-//--------------------------------------------------- color combination --------------------------------------------------
+//------------------------------------------- color combination ----------------------------------------------
 namespace colorcombo
 {
 class ICombination : public QObject
@@ -107,7 +107,19 @@ private:
 };
 
 //---------------------------------------------- color slider -------------------------------------------------------
-class ColorSlider : public QSlider
+class JumpableSlider : public QSlider
+{
+    Q_OBJECT
+public:
+    using QSlider::QSlider;
+
+protected:
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+};
+
+class ColorSlider : public JumpableSlider
 {
     Q_OBJECT
 public:
@@ -115,11 +127,6 @@ public:
     void setGradient(const QColor& startColor, const QColor& stopColor);
     void setGradient(const QVector<QPair<float, QColor>>& colors);
     QVector<QPair<float, QColor>> gradientColor() const;
-
-protected:
-    void mousePressEvent(QMouseEvent* e) override;
-    void mouseMoveEvent(QMouseEvent* e) override;
-    void mouseReleaseEvent(QMouseEvent* e) override;
 
 private:
     class Private;
@@ -219,6 +226,7 @@ public:
     explicit ColorComboWidget(QWidget* parent = nullptr);
 
     void addCombination(colorcombo::ICombination* combo);
+    void clearCombination();
     void switchCombination();
     void setColors(const QVector<QColor>& colors);
 
@@ -253,6 +261,8 @@ public:
 
     void setCurrentColor(const QColor& color);
     QColor currentColor() const;
+
+    void setColorCombinations(const QVector<colorcombo::ICombination*> combinations);
 
 signals:
     void currentColorChanged(const QColor& color);
