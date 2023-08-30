@@ -116,8 +116,10 @@ public:
     void setGradient(const QVector<QPair<float, QColor>>& colors);
     QVector<QPair<float, QColor>> gradientColor() const;
 
-signals:
-    void currentColorChanged(const QColor& color);
+protected:
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
 
 private:
     class Private;
@@ -136,7 +138,7 @@ public:
     QVector<QPair<float, QColor>> gradientColor() const;
 
 signals:
-    void currentColorChanged(const QColor& color);
+    void valueChanged(int value);
 
 private:
     class Private;
