@@ -229,6 +229,7 @@ public:
     void clearCombination();
     void switchCombination();
     void setColors(const QVector<QColor>& colors);
+    colorcombo::ICombination* currentCombination() const;
 
 signals:
     void colorClicked(const QColor& color);
@@ -268,6 +269,8 @@ signals:
     void currentColorChanged(const QColor& color);
 
 private:
+    void initSlots();
+
     class Private;
     std::unique_ptr<Private> p;
 };

@@ -338,7 +338,7 @@ QVector<QColor> Triadic::genColors(const QColor& color)
 }
 
 Tetradic::Tetradic(QObject* parent)
-    : ICombination(-90, 90, true, parent)
+    : ICombination(-90, 90, 90, true, parent)
 {
 }
 
@@ -362,7 +362,7 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
     int add = getValue();
     return {QColor::fromHsv((color.hsvHue() + add + 360) % 360, color.hsvSaturation(), color.value()),
             QColor::fromHsv((color.hsvHue() + 180) % 360, color.hsvSaturation(), color.value()),
-            QColor::fromHsv((color.hsvHue() + add + 360) % 360, color.hsvSaturation(), color.value())};
+            QColor::fromHsv((color.hsvHue() + add + 180 + 360) % 360, color.hsvSaturation(), color.value())};
 }
 } // namespace colorcombo
 
@@ -815,6 +815,11 @@ void ColorComboWidget::clearCombination()
     switchCombination();
 }
 
+colorcombo::ICombination* ColorComboWidget::currentCombination() const
+{
+    return p->combs.front();
+}
+
 void ColorComboWidget::setColors(const QVector<QColor>& colors)
 {
     for (int i = 0; i < colors.size(); ++i) {
@@ -857,6 +862,8 @@ void ColorComboWidget::switchCombination()
     p->factorSpinbox->setRange(currentComb->min(), currentComb->max());
     p->factorSpinbox->setSingleStep((currentComb->max() - currentComb->min()) / p->factor);
     p->factorSpinbox->setValue(currentComb->getValue());
+    p->factorSlider->setEnabled(currentComb->rangeEnabled());
+    p->factorSpinbox->setEnabled(currentComb->rangeEnabled());
 
     emit combinationChanged(currentComb);
 }
@@ -1015,7 +1022,7 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
     : QDialog(parent)
     , p(new Private(color, this))
 {
-    setCurrentColor(color);
+    initSlots();
 
     // init combinations
     p->combo->addCombination(new colorcombo::Analogous(this));
@@ -1030,7 +1037,50 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
         p->palette->addColor(color);
     }
 
-    // signals
+    p->wheel->setColorCombination(p->combo->currentCombination());
+    setCurrentColor(color);
+}
+
+void ColorEditor::setCurrentColor(const QColor& color)
+{
+    p->blockColorSignals(true);
+    p->wheel->setSelectedColor(color);
+    p->colorText->setText(color.name());
+    p->preview->setCurrentColor(color);
+
+    p->setGradient(color);
+
+    p->rSlider->setValue(color.red());
+    p->gSlider->setValue(color.green());
+    p->bSlider->setValue(color.blue());
+    p->hSlider->setValue(color.hsvHue());
+    p->sSlider->setValue(color.hsvSaturation());
+    p->vSlider->setValue(color.value());
+    p->blockColorSignals(false);
+
+    p->curColor = color;
+}
+
+QColor ColorEditor::currentColor() const
+{
+    return p->preview->currentColor();
+}
+
+ColorEditor::~ColorEditor()
+{
+    staticColorEditorData->writeSettings();
+}
+
+void ColorEditor::setColorCombinations(const QVector<colorcombo::ICombination*> combinations)
+{
+    p->combo->clearCombination();
+    for (const auto& combination : combinations) {
+        p->combo->addCombination(combination);
+    }
+}
+
+void ColorEditor::initSlots()
+{
     connect(p->wheel, &ColorWheel::combinationColorChanged, p->combo, &ColorComboWidget::setColors);
     connect(p->combo, &ColorComboWidget::combinationChanged, this, [this](colorcombo::ICombination* combination) {
         p->wheel->setColorCombination(combination);
@@ -1071,42 +1121,4 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
         auto color = QColor::fromHsv(p->curColor.hsvHue(), p->curColor.hsvSaturation(), value);
         setCurrentColor(color);
     });
-}
-
-void ColorEditor::setCurrentColor(const QColor& color)
-{
-    p->blockColorSignals(true);
-    p->wheel->setSelectedColor(color);
-    p->colorText->setText(color.name());
-    p->preview->setCurrentColor(color);
-
-    p->setGradient(color);
-
-    p->rSlider->setValue(color.red());
-    p->gSlider->setValue(color.green());
-    p->bSlider->setValue(color.blue());
-    p->hSlider->setValue(color.hsvHue());
-    p->sSlider->setValue(color.hsvSaturation());
-    p->vSlider->setValue(color.value());
-    p->blockColorSignals(false);
-
-    p->curColor = color;
-}
-
-QColor ColorEditor::currentColor() const
-{
-    return p->preview->currentColor();
-}
-
-ColorEditor::~ColorEditor()
-{
-    staticColorEditorData->writeSettings();
-}
-
-void ColorEditor::setColorCombinations(const QVector<colorcombo::ICombination*> combinations)
-{
-    p->combo->clearCombination();
-    for (const auto& combination : combinations) {
-        p->combo->addCombination(combination);
-    }
 }
