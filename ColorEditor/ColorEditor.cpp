@@ -19,6 +19,7 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QStyleOption>
 #include <QVBoxLayout>
 
 //------------------------------------------------------- static color data --------------------------------------------
@@ -78,6 +79,8 @@ Q_GLOBAL_STATIC(StaticColorEditorData, staticColorEditorData)
 class ColorWheel::Private
 {
 public:
+    static constexpr int selectorRadius = 4;
+    static constexpr int comboSelectorRadius = 3;
     int radius = 0;
     QColor selectedColor = QColor(Qt::white);
     QImage colorBuffer;
@@ -88,7 +91,7 @@ public:
         auto center = rect.center();
         auto size = rect.size();
 
-        radius = std::min(rect.width(), rect.height()) / 2;
+        radius = std::min(rect.width(), rect.height()) / 2 - selectorRadius;
 
         // init buffer
         colorBuffer = QImage(size, QImage::Format_ARGB32);
@@ -134,7 +137,7 @@ void ColorWheel::setSelectedColor(const QColor& color)
 
     if (color.value() != p->selectedColor.value()) {
         p->selectedColor = color;
-        p->renderWheel(this->contentsRect());
+        p->renderWheel(this->rect());
     }
     else {
         p->selectedColor = color;
@@ -167,12 +170,12 @@ void ColorWheel::paintEvent(QPaintEvent* e)
     // draw selected color circle
     painter.setPen(Qt::black);
     painter.setBrush(Qt::white);
-    drawSelector(&painter, p->selectedColor, 4);
+    drawSelector(&painter, p->selectedColor, p->selectorRadius);
     // draw color combination circle
     if (p->colorCombination) {
         auto colors = p->colorCombination->genColors(p->selectedColor);
         for (const auto& color : colors) {
-            drawSelector(&painter, color, 3);
+            drawSelector(&painter, color, p->comboSelectorRadius);
         }
         // add selected color, so the user can switch between this
         colors.push_back(p->selectedColor);
@@ -192,7 +195,7 @@ void ColorWheel::mouseMoveEvent(QMouseEvent* e)
 
 void ColorWheel::resizeEvent(QResizeEvent* e)
 {
-    p->renderWheel(this->contentsRect());
+    p->renderWheel(this->rect());
 }
 
 void ColorWheel::processMouseEvent(QMouseEvent* e)
@@ -370,24 +373,46 @@ QVector<QColor> Tetradic::genColors(const QColor& color)
 void JumpableSlider::mousePressEvent(QMouseEvent* e)
 {
     if (e->button() == Qt::LeftButton) {
-        if (orientation() == Qt::Vertical)
-            setValue(minimum() + ((maximum() - minimum()) * (height() - e->y())) / height());
-        else
-            setValue(minimum() + ((maximum() - minimum()) * e->x()) / width());
-
         e->accept();
+        setSliderDown(true);
+        handleMouseEvent(e);
     }
-    QSlider::mousePressEvent(e);
+    else {
+        QSlider::mousePressEvent(e);
+    }
 }
 
 void JumpableSlider::mouseMoveEvent(QMouseEvent* e)
 {
-    QSlider::mouseMoveEvent(e);
+    if (e->buttons() & Qt::LeftButton) {
+        e->accept();
+        handleMouseEvent(e);
+    }
+    else {
+        QSlider::mouseMoveEvent(e);
+    }
 }
 
 void JumpableSlider::mouseReleaseEvent(QMouseEvent* e)
 {
     QSlider::mouseReleaseEvent(e);
+}
+
+void JumpableSlider::handleMouseEvent(QMouseEvent* e)
+{
+    QStyleOptionSlider opt;
+    initStyleOption(&opt);
+    QRect sr = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderHandle, this);
+    if (!sr.contains(e->pos())) {
+        int newVal;
+        if (orientation() == Qt::Horizontal) {
+            newVal = minimum() + ((maximum() - minimum() + 1) * e->x()) / width();
+        }
+        else {
+            newVal = minimum() + ((maximum() - minimum() + 1) * (height() - e->y())) / height();
+        }
+        setValue(!invertedAppearance() ? newVal : maximum() - newVal);
+    }
 }
 
 class ColorSlider::Private

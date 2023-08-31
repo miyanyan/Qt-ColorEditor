@@ -117,6 +117,9 @@ protected:
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
+
+private:
+    void handleMouseEvent(QMouseEvent* e);
 };
 
 class ColorSlider : public JumpableSlider
