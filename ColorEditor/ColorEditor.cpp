@@ -19,7 +19,6 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
-#include <QStyleOption>
 #include <QVBoxLayout>
 
 //------------------------------------------------------- static color data --------------------------------------------
@@ -123,6 +122,7 @@ ColorWheel::ColorWheel(QWidget* parent)
     : QWidget(parent)
     , p(new Private)
 {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
 void ColorWheel::setColorCombination(colorcombo::ICombination* combination)
@@ -400,19 +400,14 @@ void JumpableSlider::mouseReleaseEvent(QMouseEvent* e)
 
 void JumpableSlider::handleMouseEvent(QMouseEvent* e)
 {
-    QStyleOptionSlider opt;
-    initStyleOption(&opt);
-    QRect sr = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderHandle, this);
-    if (!sr.contains(e->pos())) {
-        int newVal;
-        if (orientation() == Qt::Horizontal) {
-            newVal = minimum() + ((maximum() - minimum() + 1) * e->x()) / width();
-        }
-        else {
-            newVal = minimum() + ((maximum() - minimum() + 1) * (height() - e->y())) / height();
-        }
-        setValue(!invertedAppearance() ? newVal : maximum() - newVal);
+    int newVal;
+    if (orientation() == Qt::Horizontal) {
+        newVal = minimum() + ((maximum() - minimum() + 1) * e->x()) / width();
     }
+    else {
+        newVal = minimum() + ((maximum() - minimum() + 1) * (height() - e->y())) / height();
+    }
+    setValue(!invertedAppearance() ? newVal : maximum() - newVal);
 }
 
 class ColorSlider::Private
@@ -464,7 +459,7 @@ void ColorSlider::setGradient(const QVector<QPair<float, QColor>>& colors)
     }
 
     auto style = QString("QSlider::groove:%1{background:qlineargradient(x1:%2,y1:%3,x2:%4,y2:%5 %6);}"
-                         "QSlider::handle:%1{background:#5C5C5C;border:1px solid;height:4px;width:6px}")
+                         "QSlider::handle:%1{background:#5C5C5C;border:1px solid;width:6px}")
                      .arg(ori)
                      .arg(x1)
                      .arg(y1)
@@ -492,13 +487,14 @@ public:
         text->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         spinbox = new QSpinBox(parent);
         spinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        spinbox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         slider = new ColorSlider(parent);
-        spinbox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        slider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         auto layout = new QHBoxLayout(parent);
+        layout->setAlignment(Qt::AlignLeft);
+        layout->setMargin(0);
         layout->addWidget(text, 1);
-        layout->addWidget(spinbox, 2);
-        layout->addWidget(slider, 7);
+        layout->addWidget(spinbox, 1);
+        layout->addWidget(slider, 8);
 
         connect(slider, &QSlider::valueChanged, spinbox, &QSpinBox::setValue);
         connect(spinbox, QOverload<int>::of(&QSpinBox::valueChanged), slider, &ColorSlider::setValue);
@@ -644,6 +640,7 @@ public:
         layout = new QGridLayout(scrollWidget);
         layout->setAlignment(Qt::AlignTop);
         layout->setSpacing(0);
+        layout->setMargin(0);
 
         parent->setWidget(scrollWidget);
     }
@@ -734,8 +731,8 @@ public:
         : pbtnCurrent(new ColorButton(parent))
         , pbtnPrevious(new ColorButton(parent))
     {
-        pbtnCurrent->setAcceptDrops(true);
-        pbtnPrevious->setAcceptDrops(false);
+        // pbtnCurrent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        // pbtnPrevious->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
         pbtnCurrent->setBolderWidth(0);
         pbtnPrevious->setBolderWidth(0);
@@ -791,9 +788,8 @@ public:
         factorSpinbox = new QDoubleSpinBox(parent);
         factorSlider = new JumpableSlider(Qt::Horizontal, parent);
         switchBtn = new QPushButton(parent);
-        factorSpinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        factorSpinbox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         switchBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        factorSpinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
 
         auto layout = new QGridLayout(parent);
         hlayout = new QHBoxLayout();
@@ -876,7 +872,8 @@ void ColorComboWidget::switchCombination()
     int size = colors.size() + 1;
     for (int i = 0; i < size; ++i) {
         auto btn = new ColorButton(this);
-        btn->setBolderWidth(1);
+        // btn->setBolderWidth(1);
+        btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         btn->setAcceptDrops(false); // color can't be changed by drop
         connect(btn, &ColorButton::colorClicked, this, &ColorComboWidget::colorClicked);
         p->hlayout->addWidget(btn);
@@ -935,7 +932,6 @@ public:
         previewGroup = new QGroupBox(tr("Previous/Current Colors"), parent);
         comboGroup = new QGroupBox(tr("Color Combination"), parent);
 
-        previewGroup->setContentsMargins(0, 0, 0, 0);
         auto previewGroupLayout = new QHBoxLayout(previewGroup);
         previewGroupLayout->setMargin(0);
         previewGroupLayout->addWidget(preview);
@@ -947,10 +943,10 @@ public:
         auto leftWidget = new QWidget(parent);
         auto leftLayout = new QVBoxLayout(leftWidget);
         leftLayout->setMargin(0);
-        leftLayout->addWidget(wheel, 5);
-        leftLayout->addWidget(colorText, 1);
-        leftLayout->addWidget(previewGroup, 2);
-        leftLayout->addWidget(comboGroup, 2);
+        leftLayout->addWidget(wheel);
+        leftLayout->addWidget(colorText);
+        leftLayout->addWidget(previewGroup);
+        leftLayout->addWidget(comboGroup);
 
         // right
         palette = new ColorPalette(staticColorEditorData->colCount, parent);
@@ -960,6 +956,20 @@ public:
         hSlider = new ColorSpinHSlider("H", parent);
         sSlider = new ColorSpinHSlider("S", parent);
         vSlider = new ColorSpinHSlider("V", parent);
+
+        auto rgbSlider = new QWidget(parent);
+        auto rgbSliderLayout = new QVBoxLayout(rgbSlider);
+        rgbSliderLayout->setMargin(0);
+        rgbSliderLayout->addWidget(rSlider);
+        rgbSliderLayout->addWidget(gSlider);
+        rgbSliderLayout->addWidget(bSlider);
+
+        auto hsvSlider = new QWidget(parent);
+        auto hsvSliderLayout = new QVBoxLayout(hsvSlider);
+        hsvSliderLayout->setMargin(0);
+        hsvSliderLayout->addWidget(hSlider);
+        hsvSliderLayout->addWidget(sSlider);
+        hsvSliderLayout->addWidget(vSlider);
 
         rSlider->setRange(0, 255);
         gSlider->setRange(0, 255);
@@ -971,20 +981,15 @@ public:
         auto rightWidget = new QWidget(parent);
         auto rightLayout = new QVBoxLayout(rightWidget);
         rightLayout->setMargin(0);
-        rightLayout->setSpacing(0);
-        rightLayout->addWidget(palette, 6);
-        rightLayout->addWidget(rSlider, 1);
-        rightLayout->addWidget(gSlider, 1);
-        rightLayout->addWidget(bSlider, 1);
-        rightLayout->addWidget(hSlider, 1);
-        rightLayout->addWidget(sSlider, 1);
-        rightLayout->addWidget(vSlider, 1);
+        rightLayout->addWidget(palette);
+        rightLayout->addWidget(rgbSlider);
+        rightLayout->addWidget(hsvSlider);
 
         auto splitter = new QSplitter(parent);
         splitter->addWidget(leftWidget);
         splitter->addWidget(rightWidget);
-        splitter->setStretchFactor(0, 1);
-        splitter->setStretchFactor(1, 3);
+        splitter->setStretchFactor(0, 3);
+        splitter->setStretchFactor(1, 7);
 
         auto layout = new QHBoxLayout(parent);
         layout->addWidget(splitter);
@@ -1043,10 +1048,17 @@ public:
     }
 };
 
-ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
-    : QDialog(parent)
-    , p(new Private(color, this))
+ColorEditor::ColorEditor(QWidget* parent)
+    : ColorEditor(Qt::white, parent)
 {
+}
+
+ColorEditor::ColorEditor(const QColor& initial, QWidget* parent)
+    : QDialog(parent)
+    , p(new Private(initial, this))
+{
+    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    setWindowTitle(tr("ColorEditor"));
     initSlots();
 
     // init combinations
@@ -1063,7 +1075,7 @@ ColorEditor::ColorEditor(const QColor& color, QWidget* parent)
     }
 
     p->wheel->setColorCombination(p->combo->currentCombination());
-    setCurrentColor(color);
+    setCurrentColor(initial);
 }
 
 void ColorEditor::setCurrentColor(const QColor& color)
@@ -1091,10 +1103,7 @@ QColor ColorEditor::currentColor() const
     return p->preview->currentColor();
 }
 
-ColorEditor::~ColorEditor()
-{
-    staticColorEditorData->writeSettings();
-}
+ColorEditor::~ColorEditor() {}
 
 void ColorEditor::setColorCombinations(const QVector<colorcombo::ICombination*> combinations)
 {
@@ -1102,6 +1111,12 @@ void ColorEditor::setColorCombinations(const QVector<colorcombo::ICombination*> 
     for (const auto& combination : combinations) {
         p->combo->addCombination(combination);
     }
+}
+
+void ColorEditor::closeEvent(QCloseEvent* e)
+{
+    staticColorEditorData->writeSettings();
+    QDialog::closeEvent(e);
 }
 
 void ColorEditor::initSlots()
@@ -1146,4 +1161,12 @@ void ColorEditor::initSlots()
         auto color = QColor::fromHsv(p->curColor.hsvHue(), p->curColor.hsvSaturation(), value);
         setCurrentColor(color);
     });
+}
+
+QColor ColorEditor::getColor(const QColor& initial, QWidget* parent, const QString& title)
+{
+    ColorEditor dlg(initial, parent);
+    if (!title.isEmpty()) dlg.setWindowTitle(title);
+    dlg.exec();
+    return dlg.currentColor();
 }

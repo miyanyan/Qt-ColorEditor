@@ -10,8 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(btn);
 
     connect(btn,&ColorButton::clicked, this, [this, btn](){
-        auto editor = new ColorEditor(btn->color(), this);
-        editor->show();
+        auto color = ColorEditor::getColor(btn->color(), this, "");
     });
 }
 
