@@ -122,11 +122,11 @@ private:
     void handleMouseEvent(QMouseEvent* e);
 };
 
-class ColorSlider : public JumpableSlider
+class GradientSlider : public JumpableSlider
 {
     Q_OBJECT
 public:
-    explicit ColorSlider(QWidget* parent = nullptr);
+    explicit GradientSlider(QWidget* parent = nullptr);
     void setGradient(const QColor& startColor, const QColor& stopColor);
     void setGradient(const QVector<QPair<float, QColor>>& colors);
     QVector<QPair<float, QColor>> gradientColor() const;
@@ -189,7 +189,9 @@ public:
     explicit ColorPalette(int column, QWidget* parent = nullptr);
     void addColor(const QColor& color);
     void setColor(const QColor& color, int row, int column);
-    void removeColor(const QColor& color, int row, int column);
+    void removeColor(int row, int column);
+    QColor colorAt(int row, int column) const;
+    QVector<QColor> colors() const;
 
 signals:
     void colorClicked(const QColor& color);
