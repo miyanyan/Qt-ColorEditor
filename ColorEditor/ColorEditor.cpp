@@ -875,11 +875,14 @@ void ColorComboWidget::switchCombination()
 ColorLineEdit::ColorLineEdit(QWidget* parent)
     : QLineEdit(parent)
 {
-    connect(this, &ColorLineEdit::editingFinished, this, [this]() { emit currentColorChanged(QColor(text())); });
+    connect(this, &ColorLineEdit::editingFinished, this, [this]() {
+        setText(text().toUpper());
+        emit currentColorChanged(QColor(text()));
+    });
 }
 void ColorLineEdit::setColor(const QColor& color)
 {
-    setText(color.name());
+    setText(color.name().toUpper());
 }
 
 //------------------------------------------------------- color data --------------------------------------------
@@ -965,10 +968,6 @@ public:
         previewGroup = new QGroupBox(tr("Previous/Current Colors"), parent);
         comboGroup = new QGroupBox(tr("Color Combination"), parent);
 
-        auto font = QApplication::font();
-        //font.setPointSize(9);
-        //previewGroup->setFont(font);
-        //comboGroup->setFont(font);
         colorText->setMaximumWidth(80);
         colorText->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
@@ -1158,7 +1157,7 @@ void ColorEditor::setCurrentColor(const QColor& color)
     p->blockColorSignals(true);
     {
         p->wheel->setSelectedColor(color);
-        p->colorText->setText(color.name());
+        p->colorText->setColor(color);
         p->preview->setCurrentColor(color);
         p->setGradient(color);
         p->rSlider->setValue(color.red());
