@@ -292,7 +292,7 @@ public:
     explicit ColorEditor(const QColor& initial, QWidget* parent = nullptr);
     ~ColorEditor();
 
-    static QColor getColor(const QColor& initial, QWidget* parent, const QString& title);
+    static QColor getColor(const QColor& initial, QWidget* parent = nullptr, const QString& title = "");
 
     void setCurrentColor(const QColor& color);
     QColor currentColor() const;
