@@ -959,6 +959,7 @@ void ColorPicker::startColorPicking()
     p->grabFullScreen();
     setGeometry(p->getScreenRect());
     showFullScreen();
+    setFocus();
 }
 
 void ColorPicker::releaseColorPicking()
@@ -994,20 +995,21 @@ void ColorPicker::paintEvent(QPaintEvent* e)
 
     painter.translate(x, y);
     painter.drawImage(0, 0, img);
-    // bolder
-    painter.setPen(QPen(qGray(currentColor.rgb()) > 127 ? Qt::black : Qt::white, 1));
-    painter.drawRect(0, 0, img.width(), img.height());
+
     int rectWidth = 10;
-    painter.drawRect(img.width() / 2 - rectWidth / 2, img.height() / 2 - rectWidth / 2, rectWidth, rectWidth);
-    // cross
     int halfRectWidth = rectWidth / 2;
     int halfH = img.height() / 2;
     int halfW = img.width() / 2;
-    painter.setPen(QPen(QColor("#40a0ff7f"), rectWidth));
-    painter.drawLine(halfW, halfRectWidth, halfW, halfH - halfRectWidth);
-    painter.drawLine(halfW, halfRectWidth + halfH, halfW, img.height() - halfRectWidth);
-    painter.drawLine(halfRectWidth, halfH, halfW - halfRectWidth, halfH);
-    painter.drawLine(halfRectWidth + halfW, halfH, img.width() - halfRectWidth, halfH);
+    // cross
+    painter.setPen(QPen(QColor("#aadafa7f"), rectWidth));
+    painter.drawLine(halfW, halfRectWidth, halfW, halfH - rectWidth);
+    painter.drawLine(halfW, rectWidth + halfH, halfW, img.height() - halfRectWidth);
+    painter.drawLine(halfRectWidth, halfH, halfW - rectWidth, halfH);
+    painter.drawLine(rectWidth + halfW, halfH, img.width() - halfRectWidth, halfH);
+    // bolder
+    painter.setPen(QPen(qGray(currentColor.rgb()) > 127 ? Qt::black : Qt::white, 1));
+    painter.drawRect(0, 0, img.width(), img.height());
+    painter.drawRect(halfW - halfRectWidth, halfH - halfRectWidth, rectWidth, rectWidth);
 }
 
 void ColorPicker::mouseMoveEvent(QMouseEvent* e)
@@ -1029,13 +1031,35 @@ void ColorPicker::mouseReleaseEvent(QMouseEvent* e)
 
 void ColorPicker::keyPressEvent(QKeyEvent* e)
 {
-    if (e->key() == Qt::Key_Escape) {
-        releaseColorPicking();
+    switch (e->key()) {
+        case Qt::Key_Escape:
+            releaseColorPicking();
+            break;
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+            emit colorSelected(p->getColorAt(QCursor::pos()));
+            releaseColorPicking();
+            break;
+        case Qt::Key_Up:
+            QCursor::setPos(p->cursorPos.x(), p->cursorPos.y() - 1);
+            break;
+        case Qt::Key_Down:
+            QCursor::setPos(p->cursorPos.x(), p->cursorPos.y() + 1);
+            break;
+        case Qt::Key_Left:
+            QCursor::setPos(p->cursorPos.x() - 1, p->cursorPos.y());
+            break;
+        case Qt::Key_Right:
+            QCursor::setPos(p->cursorPos.x() + 1, p->cursorPos.y());
+            break;
+        default:
+            break;
     }
-    else if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
-        emit colorSelected(p->getColorAt(QCursor::pos()));
-        releaseColorPicking();
-    }
+}
+
+void ColorPicker::focusOutEvent(QFocusEvent* e)
+{
+    releaseColorPicking();
 }
 
 //------------------------------------------------------- color data --------------------------------------------
@@ -1295,7 +1319,7 @@ ColorEditor::ColorEditor(const QColor& initial, QWidget* parent)
 {
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setWindowTitle(tr("ColorEditor"));
-    setMinimumSize(800, 550);
+    setMinimumSize(700, 500);
     initSlots();
     // init combinations
     p->combo->addCombination(new colorcombo::Analogous(this));

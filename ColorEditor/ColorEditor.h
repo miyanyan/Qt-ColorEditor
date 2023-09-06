@@ -276,6 +276,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
     void keyPressEvent(QKeyEvent* e) override;
+    void focusOutEvent(QFocusEvent* e) override;
 
 private:
     class Private;
