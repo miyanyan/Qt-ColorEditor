@@ -3,7 +3,9 @@
 #include <queue>
 
 #include <QApplication>
+#include <QCursor>
 #include <QDebug>
+#include <QDesktopWidget>
 #include <QDrag>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -15,6 +17,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QScreen>
 #include <QScrollBar>
 #include <QSettings>
 #include <QSpinBox>
@@ -722,6 +725,7 @@ public:
 
         auto layout = new QHBoxLayout(parent);
         layout->setSpacing(0);
+        layout->setMargin(0);
         layout->addWidget(pbtnPrevious);
         layout->addWidget(pbtnCurrent);
     }
@@ -772,7 +776,9 @@ public:
         factorSpinbox->setButtonSymbols(QAbstractSpinBox::NoButtons);
 
         auto layout = new QGridLayout(parent);
+        layout->setMargin(0);
         hlayout = new QHBoxLayout();
+        hlayout->setMargin(0);
         hlayout->setSpacing(0);
         layout->addLayout(hlayout, 0, 0, 1, 3);
         layout->addWidget(switchBtn, 0, 3, 1, 1);
@@ -885,6 +891,153 @@ void ColorLineEdit::setColor(const QColor& color)
     setText(color.name().toUpper());
 }
 
+//------------------------------------------ color picker ----------------------------------
+class ColorPicker::Private
+{
+public:
+    int rectLength = 20;
+    int scaleSize = 10;
+    QPoint cursorPos;
+    QImage fullScreenImg;
+
+    void grabFullScreen()
+    {
+        const QDesktopWidget* desktop = QApplication::desktop();
+        const QPixmap pixmap = QApplication::primaryScreen()->grabWindow(desktop->winId(), desktop->pos().x(), desktop->pos().y(),
+                                                                         desktop->width(), desktop->height());
+        fullScreenImg = pixmap.toImage();
+    }
+
+    QRect getScreenRect() const
+    {
+        const QDesktopWidget* desktop = QApplication::desktop();
+        return QRect(desktop->pos(), desktop->size());
+    }
+
+    QColor getColorAt(QPoint p) const { return fullScreenImg.pixelColor(p); }
+
+    QImage getScaledImage(QPoint p) const
+    {
+        int rectHalfLength = rectLength / 2;
+        QImage img = fullScreenImg.copy(p.x() - rectHalfLength, p.y() - rectHalfLength, rectLength, rectLength);
+        return img.scaled(scaleSize * rectLength, scaleSize * rectLength);
+    }
+
+    QScreen* getScreenAt(QPoint p) const
+    {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+        QScreen* screen = QApplication::screenAt(p);
+#else
+        int screenNum = QApplication::desktop()->screenNumber(p);
+        QScreen* screen = QApplication::screens().at(screenNum);
+#endif
+        return screen;
+    }
+};
+
+ColorPicker::ColorPicker(QWidget* parent)
+    : QWidget(parent)
+    , p(new Private)
+{
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    setMouseTracking(true);
+    setCursor(Qt::CrossCursor);
+}
+
+QColor ColorPicker::grabScreenColor(QPoint p) const
+{
+    // not use now, just make screenshot and get color from it
+    const QDesktopWidget* desktop = QApplication::desktop();
+    const QPixmap pixmap = QApplication::primaryScreen()->grabWindow(desktop->winId(), p.x(), p.y(), 1, 1);
+    QImage i = pixmap.toImage();
+    return i.pixel(0, 0);
+}
+
+void ColorPicker::startColorPicking()
+{
+    p->cursorPos = QCursor::pos();
+    p->grabFullScreen();
+    setGeometry(p->getScreenRect());
+    showFullScreen();
+}
+
+void ColorPicker::releaseColorPicking()
+{
+    hide();
+}
+
+void ColorPicker::paintEvent(QPaintEvent* e)
+{
+    QPainter painter(this);
+    // background
+    painter.drawImage(0, 0, p->fullScreenImg);
+    // scaled img
+    auto img = p->getScaledImage(p->cursorPos);
+    auto currentColor = p->getColorAt(p->cursorPos);
+    auto screen = p->getScreenAt(p->cursorPos);
+    auto rect = screen->geometry();
+    // calculate img pos
+    int dx = 20, dy = 20;
+    int x, y;
+    if (rect.right() - p->cursorPos.x() < img.width() + dx) {
+        x = p->cursorPos.x() - img.width() - dx;
+    }
+    else {
+        x = p->cursorPos.x() + dx;
+    }
+    if (rect.height() - p->cursorPos.y() < img.height() + dy) {
+        y = p->cursorPos.y() - img.height() + dy;
+    }
+    else {
+        y = p->cursorPos.y() + dy;
+    }
+
+    painter.translate(x, y);
+    painter.drawImage(0, 0, img);
+    // bolder
+    painter.setPen(QPen(qGray(currentColor.rgb()) > 127 ? Qt::black : Qt::white, 1));
+    painter.drawRect(0, 0, img.width(), img.height());
+    int rectWidth = 10;
+    painter.drawRect(img.width() / 2 - rectWidth / 2, img.height() / 2 - rectWidth / 2, rectWidth, rectWidth);
+    // cross
+    int halfRectWidth = rectWidth / 2;
+    int halfH = img.height() / 2;
+    int halfW = img.width() / 2;
+    painter.setPen(QPen(QColor("#40a0ff7f"), rectWidth));
+    painter.drawLine(halfW, halfRectWidth, halfW, halfH - halfRectWidth);
+    painter.drawLine(halfW, halfRectWidth + halfH, halfW, img.height() - halfRectWidth);
+    painter.drawLine(halfRectWidth, halfH, halfW - halfRectWidth, halfH);
+    painter.drawLine(halfRectWidth + halfW, halfH, img.width() - halfRectWidth, halfH);
+}
+
+void ColorPicker::mouseMoveEvent(QMouseEvent* e)
+{
+    p->cursorPos = e->pos();
+    update();
+}
+
+void ColorPicker::mouseReleaseEvent(QMouseEvent* e)
+{
+    if (e->button() == Qt::LeftButton) {
+        emit colorSelected(p->getColorAt(QCursor::pos()));
+        releaseColorPicking();
+    }
+    else if (e->button() == Qt::RightButton) {
+        releaseColorPicking();
+    }
+}
+
+void ColorPicker::keyPressEvent(QKeyEvent* e)
+{
+    if (e->key() == Qt::Key_Escape) {
+        releaseColorPicking();
+    }
+    else if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+        emit colorSelected(p->getColorAt(QCursor::pos()));
+        releaseColorPicking();
+    }
+}
+
 //------------------------------------------------------- color data --------------------------------------------
 struct ColorEditorData
 {
@@ -944,6 +1097,8 @@ public:
     ColorWheel* wheel;
     ColorLineEdit* colorText;
     ColorPreview* preview;
+    ColorPicker* picker;
+    QPushButton* pickerBtn;
     ColorComboWidget* combo;
     QGroupBox* previewGroup;
     QGroupBox* comboGroup;
@@ -961,6 +1116,8 @@ public:
     Private(const QColor& color, QWidget* parent)
     {
         // left
+        picker = new ColorPicker(parent);
+        pickerBtn = new QPushButton(parent);
         wheel = new ColorWheel(parent);
         colorText = new ColorLineEdit(parent);
         preview = new ColorPreview(color, parent);
@@ -970,13 +1127,18 @@ public:
 
         colorText->setMaximumWidth(80);
         colorText->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        pickerBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+        auto previewWidget = new QWidget(parent);
+        auto previewLayout = new QHBoxLayout(previewWidget);
+        previewLayout->setMargin(0);
+        previewLayout->addWidget(preview);
+        previewLayout->addWidget(pickerBtn);
 
         auto previewGroupLayout = new QHBoxLayout(previewGroup);
-        previewGroupLayout->setMargin(0);
-        previewGroupLayout->addWidget(preview);
+        previewGroupLayout->addWidget(previewWidget);
 
         auto comboGroupLayout = new QHBoxLayout(comboGroup);
-        comboGroupLayout->setMargin(0);
         comboGroupLayout->addWidget(combo);
 
         auto leftWidget = new QWidget(parent);
@@ -1196,6 +1358,9 @@ void ColorEditor::closeEvent(QCloseEvent* e)
 
 void ColorEditor::initSlots()
 {
+    // picker
+    connect(p->pickerBtn, &QPushButton::clicked, p->picker, &ColorPicker::startColorPicking);
+    connect(p->picker, &ColorPicker::colorSelected, this, &ColorEditor::setCurrentColor);
     // color combination
     connect(p->wheel, &ColorWheel::combinationColorChanged, p->combo, &ColorComboWidget::setColors);
     connect(p->combo, &ColorComboWidget::combinationChanged, this, [this](colorcombo::ICombination* combination) {

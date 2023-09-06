@@ -257,6 +257,31 @@ signals:
     void currentColorChanged(const QColor& color);
 };
 
+//------------------------------------------ color picker ----------------------------------
+class ColorPicker : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ColorPicker(QWidget* parent = nullptr);
+
+    QColor grabScreenColor(QPoint p) const;
+    void startColorPicking();
+    void releaseColorPicking();
+
+signals:
+    void colorSelected(const QColor& color);
+
+protected:
+    void paintEvent(QPaintEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+    void keyPressEvent(QKeyEvent* e) override;
+
+private:
+    class Private;
+    std::unique_ptr<Private> p;
+};
+
 //------------------------------------------ color editor ----------------------------------
 class ColorEditor : public QDialog
 {
