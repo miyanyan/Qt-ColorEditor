@@ -544,6 +544,9 @@ void ColorButton::mouseMoveEvent(QMouseEvent* e)
             drg->setMimeData(mime);
             drg->setPixmap(pix);
             drg->exec(Qt::CopyAction);
+            // need let pushbutton release
+            QMouseEvent event(QEvent::MouseButtonRelease, e->pos(), Qt::LeftButton, Qt::LeftButton, 0);
+            QApplication::sendEvent(this, &event);
         }
     }
 }
@@ -717,8 +720,8 @@ public:
         // pbtnCurrent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         // pbtnPrevious->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
-        pbtnCurrent->setBolderWidth(0);
-        pbtnPrevious->setBolderWidth(0);
+        pbtnCurrent->setBolderWidth(1);
+        pbtnPrevious->setBolderWidth(1);
 
         pbtnCurrent->setColor(color);
         pbtnPrevious->setColor(color);
@@ -858,7 +861,7 @@ void ColorComboWidget::switchCombination()
     int size = colors.size() + 1;
     for (int i = 0; i < size; ++i) {
         auto btn = new ColorButton(this);
-        // btn->setBolderWidth(1);
+        btn->setBolderWidth(1);
         btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         btn->setAcceptDrops(false); // color can't be changed by drop
         connect(btn, &ColorButton::colorClicked, this, &ColorComboWidget::colorClicked);
@@ -1134,11 +1137,13 @@ public:
     ColorSpinHSlider* sSlider;
     ColorSpinHSlider* vSlider;
 
+    QColor initialColor;
     QColor curColor;
     ColorEditorData colorData;
 
-    Private(const QColor& color, QWidget* parent)
+    Private(const QColor& color, QDialog* parent)
     {
+        initialColor = color;
         // left
         picker = new ColorPicker(parent);
         pickerBtn = new QPushButton(parent);
@@ -1167,7 +1172,7 @@ public:
 
         auto leftWidget = new QWidget(parent);
         auto leftLayout = new QGridLayout(leftWidget);
-        leftLayout->setMargin(0);
+        // leftLayout->setMargin(0);
         leftLayout->setSpacing(0);
         leftLayout->addWidget(wheel, 0, 0);
         leftLayout->addWidget(colorText, 1, 0, Qt::AlignRight);
@@ -1215,19 +1220,21 @@ public:
 
         auto rightWidget = new QWidget(parent);
         auto rightLayout = new QVBoxLayout(rightWidget);
-        rightLayout->setMargin(0);
+        // rightLayout->setMargin(0);
         rightLayout->addWidget(palette);
         rightLayout->addWidget(rgbSlider);
         rightLayout->addWidget(hsvSlider);
-
+        // splitter
         auto splitter = new QSplitter(parent);
         splitter->addWidget(leftWidget);
         splitter->addWidget(rightWidget);
         splitter->setStretchFactor(0, 3);
         splitter->setStretchFactor(1, 7);
+        splitter->setCollapsible(0, false);
+        splitter->setCollapsible(1, false);
 
-        auto layout = new QHBoxLayout(parent);
-        layout->setMargin(10);
+        auto layout = new QVBoxLayout(parent);
+        layout->setMargin(0);
         layout->addWidget(splitter);
     }
 

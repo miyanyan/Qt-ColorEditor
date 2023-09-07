@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(btn,&ColorButton::clicked, this, [this, btn](){
         auto color = ColorEditor::getColor(btn->color(), this, "");
+        btn->setColor(color);
     });
 }
 
