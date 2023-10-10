@@ -3,11 +3,20 @@
 #include <memory>
 
 #include <QDialog>
+#include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSlider>
 #include <QWidget>
+
+//------------------------------------------- color correction -----------------------------------------------
+struct ColorCorrection
+{
+    float gamma = 2.2f;
+    void correct(QColor& color);
+    void correct(QImage& image);
+};
 
 //------------------------------------------- color combination ----------------------------------------------
 namespace colorcombo
@@ -17,21 +26,24 @@ class ICombination : public QObject
     Q_OBJECT
 public:
     explicit ICombination(QObject* parent = nullptr);
-    explicit ICombination(double min, double max, double value, bool rangeEnabled, QObject* parent = nullptr);
+    explicit ICombination(double min, double max, double value, int decimals, bool rangeEnabled, QObject* parent = nullptr);
     virtual ~ICombination() = default;
     virtual QString name();
     virtual QVector<QColor> genColors(const QColor& color);
     void setRange(double min, double max);
-    void serValue(double value);
+    void setValue(double value);
+    void setDecimals(int decimals);
     double min() const;
     double max() const;
     double getValue() const;
     bool rangeEnabled() const;
+    int decimals() const;
 
 private:
     double m_min;
     double m_max;
     double m_value;
+    int m_decimals;
     bool m_rangeEnabled;
 };
 
@@ -85,6 +97,7 @@ public:
 
     void setColorCombination(colorcombo::ICombination* combination);
     void setSelectedColor(const QColor& color);
+    void setColorCorrection(ColorCorrection* colorCorrection);
     QColor getSelectedColor() const;
     QColor getColor(int x, int y) const;
 
@@ -107,11 +120,35 @@ private:
 };
 
 //---------------------------------------------- color slider -------------------------------------------------------
+class MixedSpinBox : public QDoubleSpinBox
+{
+public:
+    explicit MixedSpinBox(QWidget* parent = nullptr);
+    virtual QString textFromValue(double value) const override;
+
+protected:
+    void keyPressEvent(QKeyEvent* e) override;
+};
+
 class JumpableSlider : public QSlider
 {
     Q_OBJECT
 public:
-    using QSlider::QSlider;
+    explicit JumpableSlider(QWidget* parent);
+    explicit JumpableSlider(Qt::Orientation orientation, QWidget* parent = nullptr);
+    void setValue(double value);
+    void setMinimum(double value);
+    void setMaximum(double value);
+    void setRange(double minValue, double maxValue);
+    void setSingleStep(double value);
+
+    double value() const;
+    double minimum() const;
+    double maximum() const;
+    double singleStep() const;
+
+signals:
+    void valueChanged(double value);
 
 protected:
     void mousePressEvent(QMouseEvent* e) override;
@@ -120,6 +157,9 @@ protected:
 
 private:
     void handleMouseEvent(QMouseEvent* e);
+
+    class Private;
+    std::unique_ptr<Private> p;
 };
 
 class GradientSlider : public JumpableSlider
@@ -128,8 +168,13 @@ class GradientSlider : public JumpableSlider
 public:
     explicit GradientSlider(QWidget* parent = nullptr);
     void setGradient(const QColor& startColor, const QColor& stopColor);
-    void setGradient(const QVector<QPair<float, QColor>>& colors);
-    QVector<QPair<float, QColor>> gradientColor() const;
+    void setGradient(const QGradientStops& colors);
+    void setColorCorrection(ColorCorrection* colorCorrection);
+    QGradientStops gradientColor() const;
+
+protected:
+    void paintEvent(QPaintEvent* e) override;
+    void resizeEvent(QResizeEvent* e) override;
 
 private:
     class Private;
@@ -142,13 +187,15 @@ class ColorSpinHSlider : public QWidget
 public:
     explicit ColorSpinHSlider(const QString& name, QWidget* parent = nullptr);
     void setGradient(const QColor& startColor, const QColor& stopColor);
-    void setGradient(const QVector<QPair<float, QColor>>& colors);
+    void setGradient(const QGradientStops& colors);
+    void setColorCorrection(ColorCorrection* colorCorrection);
     void setValue(double value);
     void setRange(double min, double max);
-    QVector<QPair<float, QColor>> gradientColor() const;
+    QGradientStops gradientColor() const;
+    double value() const;
 
 signals:
-    void valueChanged(int value);
+    void valueChanged(double value);
 
 private:
     class Private;
@@ -160,9 +207,10 @@ class ColorButton : public QPushButton
 {
     Q_OBJECT
 public:
-    explicit ColorButton(QWidget* parent);
+    explicit ColorButton(QWidget* parent = nullptr);
     void setColor(const QColor& color);
-    void setBolderWidth(int width);
+    void setColorCorrection(ColorCorrection* colorCorrection);
+    void setBolderWidth(int top, int bottom, int left, int right);
     QColor color() const;
 
 signals:
@@ -190,6 +238,7 @@ public:
     void addColor(const QColor& color);
     void setColor(const QColor& color, int row, int column);
     void removeColor(int row, int column);
+    void setColorCorrection(ColorCorrection* colorCorrection);
     QColor colorAt(int row, int column) const;
     QVector<QColor> colors() const;
 
@@ -212,6 +261,7 @@ class ColorPreview : public QWidget
 public:
     explicit ColorPreview(const QColor& color, QWidget* parent = nullptr);
     void setCurrentColor(const QColor& color);
+    void setColorCorrection(ColorCorrection* colorCorrection);
     QColor currentColor() const;
     QColor previousColor() const;
 
@@ -234,6 +284,7 @@ public:
     void clearCombination();
     void switchCombination();
     void setColors(const QVector<QColor>& colors);
+    void setColorCorrection(ColorCorrection* colorCorrection);
     colorcombo::ICombination* currentCombination() const;
 
 signals:
@@ -255,6 +306,9 @@ public:
 
 signals:
     void currentColorChanged(const QColor& color);
+
+protected:
+    void keyPressEvent(QKeyEvent* e) override;
 };
 
 //------------------------------------------ color picker ----------------------------------
@@ -304,6 +358,7 @@ signals:
 
 protected:
     void closeEvent(QCloseEvent* e) override;
+    void keyPressEvent(QKeyEvent* e) override;
 
 private:
     void initSlots();
