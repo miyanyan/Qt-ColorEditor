@@ -111,6 +111,8 @@ ColorWheel::ColorWheel(QWidget* parent)
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
+ColorWheel::~ColorWheel() = default;
+
 void ColorWheel::setColorCombination(colorcombo::ICombination* combination)
 {
     p->colorCombination = combination;
@@ -422,6 +424,8 @@ JumpableSlider::JumpableSlider(Qt::Orientation orientation, QWidget* parent)
     connect(this, &QSlider::valueChanged, this, [this](int value) { emit valueChanged(value * p->singleStep); });
 }
 
+JumpableSlider::~JumpableSlider() = default;
+
 void JumpableSlider::setValue(double value)
 {
     // need round
@@ -563,6 +567,7 @@ GradientSlider::GradientSlider(QWidget* parent)
 {
 }
 
+GradientSlider::~GradientSlider() = default;
 void GradientSlider::setGradient(const QColor& startColor, const QColor& stopColor)
 {
     setGradient({{0, startColor}, {1, stopColor}});
@@ -650,6 +655,8 @@ ColorSpinHSlider::ColorSpinHSlider(const QString& name, QWidget* parent)
     connect(p->spinbox, &MixedSpinBox::editingFinished, this, [this]() { p->slider->setValue(p->spinbox->value()); });
 }
 
+ColorSpinHSlider::~ColorSpinHSlider() = default;
+
 void ColorSpinHSlider::setGradient(const QColor& startColor, const QColor& stopColor)
 {
     p->slider->setGradient(startColor, stopColor);
@@ -730,6 +737,8 @@ ColorButton::ColorButton(QWidget* parent)
     setAcceptDrops(true);
     connect(this, &QPushButton::clicked, this, [this]() { emit colorClicked(p->color); });
 }
+
+ColorButton::~ColorButton() = default;
 
 void ColorButton::setColor(const QColor& color)
 {
@@ -863,6 +872,8 @@ ColorPalette::ColorPalette(int column, QWidget* parent)
     setWidgetResizable(true);
     setAcceptDrops(true);
 }
+
+ColorPalette::~ColorPalette() = default;
 
 void ColorPalette::addColor(const QColor& color)
 {
@@ -1000,6 +1011,8 @@ ColorPreview::ColorPreview(const QColor& color, QWidget* parent)
     connect(p->pbtnCurrent, &ColorButton::colorDroped, this, &ColorPreview::currentColorChanged);
 }
 
+ColorPreview::~ColorPreview() = default;
+
 void ColorPreview::setCurrentColor(const QColor& color)
 {
     p->setCurrent(color);
@@ -1072,6 +1085,8 @@ ColorComboWidget::ColorComboWidget(QWidget* parent)
         emit combinationChanged(comb);
     });
 }
+
+ColorComboWidget::~ColorComboWidget() = default;
 
 void ColorComboWidget::addCombination(colorcombo::ICombination* combo)
 {
@@ -1167,6 +1182,7 @@ ColorLineEdit::ColorLineEdit(QWidget* parent)
         emit currentColorChanged(QColor(text()));
     });
 }
+ColorLineEdit::~ColorLineEdit() = default;
 void ColorLineEdit::setColor(const QColor& color)
 {
     setText(color.name().toUpper());
@@ -1232,6 +1248,8 @@ ColorPicker::ColorPicker(QWidget* parent)
     setMouseTracking(true);
     setCursor(Qt::CrossCursor);
 }
+
+ColorPicker::~ColorPicker() = default;
 
 QColor ColorPicker::grabScreenColor(QPoint p) const
 {
@@ -1644,6 +1662,8 @@ ColorEditor::ColorEditor(const QColor& initial, QWidget* parent)
     // show in srgb
     p->showInSRGB->setChecked(true);
 }
+
+ColorEditor::~ColorEditor() = default;
 
 void ColorEditor::setCurrentColor(const QColor& color)
 {

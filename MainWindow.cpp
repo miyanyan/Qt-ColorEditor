@@ -1,6 +1,6 @@
 #include "MainWindow.h"
 
-#include "ColorEditor/ColorEditor.h"
+#include "ColorWidgets/ColorEditor.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
