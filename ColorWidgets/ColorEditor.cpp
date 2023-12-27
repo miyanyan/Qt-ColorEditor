@@ -568,6 +568,7 @@ GradientSlider::GradientSlider(QWidget* parent)
 }
 
 GradientSlider::~GradientSlider() = default;
+
 void GradientSlider::setGradient(const QColor& startColor, const QColor& stopColor)
 {
     setGradient({{0, startColor}, {1, stopColor}});
@@ -1182,7 +1183,6 @@ ColorLineEdit::ColorLineEdit(QWidget* parent)
         emit currentColorChanged(QColor(text()));
     });
 }
-ColorLineEdit::~ColorLineEdit() = default;
 void ColorLineEdit::setColor(const QColor& color)
 {
     setText(color.name().toUpper());
@@ -1219,7 +1219,12 @@ public:
         return QRect(desktop->pos(), desktop->size());
     }
 
-    QColor getColorAt(QPoint p) const { return fullScreenImg.pixelColor(p); }
+    QColor getColorAt(QPoint p) const
+    {
+        // p need in local coordinate
+        // e.g. if use QCursor::pos(), it's global pos, need mapFromGlobal(QCursor::pos())
+        return fullScreenImg.pixelColor(p);
+    }
 
     QImage getScaledImage(QPoint p) const
     {
@@ -1262,11 +1267,12 @@ QColor ColorPicker::grabScreenColor(QPoint p) const
 
 void ColorPicker::startColorPicking()
 {
-    p->cursorPos = QCursor::pos();
     p->grabFullScreen();
-    setGeometry(p->getScreenRect());
-    showFullScreen();
+    showFullScreen(); // show fullscreen only covers one screen
+    QRect fullRect = p->getScreenRect();
+    setGeometry(fullRect); // force reszie
     setFocus();
+    p->cursorPos = this->mapFromGlobal(QCursor::pos());
 }
 
 void ColorPicker::releaseColorPicking()
@@ -1279,21 +1285,26 @@ void ColorPicker::paintEvent(QPaintEvent* e)
     QPainter painter(this);
     // background
     painter.drawImage(0, 0, p->fullScreenImg);
+
+    // get screen info
+    QPoint globalPos = this->mapToGlobal(p->cursorPos);
+    auto screen = p->getScreenAt(globalPos);
+    auto rect = screen->geometry();
+    QPoint bottomRight = this->mapFromGlobal(rect.bottomRight());
+
     // scaled img
     auto img = p->getScaledImage(p->cursorPos);
     auto currentColor = p->getColorAt(p->cursorPos);
-    auto screen = p->getScreenAt(p->cursorPos);
-    auto rect = screen->geometry();
     // calculate img pos
     int dx = 20, dy = 20;
     int x, y;
-    if (rect.right() - p->cursorPos.x() < img.width() + dx) {
+    if (bottomRight.x() - p->cursorPos.x() < img.width() + dx) {
         x = p->cursorPos.x() - img.width() - dx;
     }
     else {
         x = p->cursorPos.x() + dx;
     }
-    if (rect.height() - p->cursorPos.y() < img.height() + dy) {
+    if (bottomRight.y() - p->cursorPos.y() < img.height() + dy) {
         y = p->cursorPos.y() - img.height() + dy;
     }
     else {
@@ -1328,7 +1339,7 @@ void ColorPicker::mouseMoveEvent(QMouseEvent* e)
 void ColorPicker::mouseReleaseEvent(QMouseEvent* e)
 {
     if (e->button() == Qt::LeftButton) {
-        emit colorSelected(p->getColorAt(QCursor::pos()));
+        emit colorSelected(p->getColorAt(this->mapFromGlobal(QCursor::pos())));
         releaseColorPicking();
     }
     else if (e->button() == Qt::RightButton) {
@@ -1344,7 +1355,7 @@ void ColorPicker::keyPressEvent(QKeyEvent* e)
             break;
         case Qt::Key_Return:
         case Qt::Key_Enter:
-            emit colorSelected(p->getColorAt(QCursor::pos()));
+            emit colorSelected(p->getColorAt(this->mapFromGlobal(QCursor::pos())));
             releaseColorPicking();
             break;
         case Qt::Key_Up:
